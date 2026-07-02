@@ -148,9 +148,34 @@ cp scripts/local.example.sh scripts/local.sh
 
 然后更新 `scripts/local.sh` 中的 `MODEL_PATHS` 和 `CKPT_PATH`.
 
+## RoboTwin 到 BWM 输入转换
+
+`robotwin_to_bwm.py` 是本仓库统一维护的公共转换脚本. 需要把 RoboTwin 采集结果转换成世界模型输入时, 统一使用这个脚本, 不要在各自实验代码中重复实现格式转换逻辑, 以免 action 维度或 quaternion 顺序不一致.
+
+默认使用方式如下. 输入目录应是 RoboTwin 的某个任务配置输出目录, 目录下需要包含 `data/episode<N>.hdf5` 和 `video/episode<N>.mp4`; 转换默认从每个 episode 的第 0 帧开始:
+
+```bash
+python robotwin_to_bwm.py \
+  --robotwin_dir third_party/robotwin/data/<task_name>/<task_config> \
+  --output_dir outputs/wm_inputs/<run_id>
+```
+
+输出会写到:
+
+```text
+outputs/wm_inputs/<run_id>/
+  first_frames/episode_000000.png
+  actions/episode_000000.parquet
+  videos/episode_000000.mp4
+```
+
+`first_frames` 保存每个 episode 的首帧, `videos` 保存与该首帧对应的 RoboTwin 原视频副本, `actions` 保存世界模型需要读取的 parquet 输入.
+
+`actions` 目录中的 parquet 包含 `observation.state` 和 `action` 两列. `observation.state` 是 26 维状态: 左臂 7 维 joint, 左末端 `xyz/rpy`, 右臂 7 维 joint, 右末端 `xyz/rpy`. `action` 统一为 BWM 默认 `eef_abs` 格式: 左末端 `xyz/rpy` + 左夹爪 + 右末端 `xyz/rpy` + 右夹爪, 共 14 维. RoboTwin 的 endpose quaternion 会按 `qw, qx, qy, qz` 顺序转换为 euler, gripper 保留 RoboTwin 原始 0 到 1 开合比例.
+
 ## 提交和推送流程
 
-开发者需要根据实际改动位置分别提交. 三个仓库是独立 Git 仓库, 主仓库只记录 submodule 的具体 commit 指针.
+开发者需要根据实际改动位置分别提交. 三个仓库是独立 Git 仓库, 主仓库只记录 submodule 的具体 commit 指针. 因此修改并提交三方库后, 还需要回到主仓库提交一次对应的 submodule 指针变化, 这一步记录的是主仓库应使用三方库的哪个 commit, 不是重复提交三方库源码.
 
 只修改主仓库时:
 
