@@ -1,6 +1,6 @@
 [submodule "third_party/robotwin"]
 	path = third_party/robotwin
-	url = https://github.com/DandelionWow/RoboTwin
+	url = git@github.com:crimson-k/RoboTwin.git
 [submodule "third_party/boundless-world-model"]
 	path = third_party/boundless-world-model
 	url = https://github.com/DandelionWow/boundless-world-model
