@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Waypoint Selection</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <aside class="sidebar">
+        <h1>Waypoint Selection</h1>
+        <form id="scene-form" class="control-stack">
+          <label>
+            task_config
+            <select id="task-config"></select>
+          </label>
+          <label>
+            task_name
+            <select id="task-name"></select>
+          </label>
+          <label>
+            seed
+            <input id="seed" type="number" min="0" value="0" />
+          </label>
+          <label>
+            pre_grasp_distance
+            <input id="pre-grasp-distance" type="number" min="0" step="0.01" value="0.1" />
+          </label>
+          <label class="check-row">
+            <input id="refresh" type="checkbox" />
+            重新生成缓存
+          </label>
+          <button id="load-scene" type="submit">生成 / 加载首帧</button>
+        </form>
+
+        <section class="panel">
+          <div class="panel-title">Coordinate System</div>
+          <label class="check-row">
+            <input id="show-contact-frames" type="checkbox" />
+            显示 contact point 坐标系
+          </label>
+          <label class="check-row">
+            <input id="show-pre-grasp-frames" type="checkbox" />
+            显示预抓取位姿坐标系
+          </label>
+          <label class="check-row">
+            <input id="show-tcp-frames" type="checkbox" />
+            显示 TCP 坐标系
+          </label>
+          <label class="check-row">
+            <input id="show-grasp-frames" type="checkbox" />
+            显示抓取位姿坐标系
+          </label>
+          <label class="check-row">
+            <input id="show-perturbed-contact-frames" type="checkbox" checked />
+            显示扰动 contact point 坐标系
+          </label>
+          <label class="check-row">
+            <input id="show-perturbed-frames" type="checkbox" checked />
+            显示扰动抓取位姿坐标系
+          </label>
+          <label class="check-row">
+            <input id="show-perturbed-tcp-frames" type="checkbox" checked />
+            显示扰动 TCP 坐标系
+          </label>
+          <label class="check-row">
+            <input id="show-perturbed-pre-grasp-frames" type="checkbox" checked />
+            显示扰动预抓取位姿坐标系
+          </label>
+          <div id="point-list" class="point-list empty">加载场景后显示</div>
+          <button id="draw-selected" type="button" disabled>可视化选中点</button>
+          <button id="clear-overlay" type="button" disabled>清空可视化</button>
+        </section>
+
+      </aside>
+
+      <section class="viewer">
+        <div id="status" class="status">请选择配置并生成首帧。</div>
+        <div class="view-grid">
+          <div class="image-wrap">
+            <img id="frame" alt="首帧场景" />
+            <canvas id="overlay"></canvas>
+          </div>
+          <div class="open3d-wrap">
+            <canvas id="view3d"></canvas>
+          </div>
+        </div>
+        <pre id="metadata" class="metadata"></pre>
+      </section>
+      <aside class="right-sidebar">
+        <section class="panel">
+          <div class="panel-title">Contact Point 扰动</div>
+          <div class="perturb-grid">
+            <label>dx<input id="perturb-x" type="number" step="0.01" value="0" /></label>
+            <label>dy<input id="perturb-y" type="number" step="0.01" value="0" /></label>
+            <label>dz<input id="perturb-z" type="number" step="0.01" value="0" /></label>
+            <label>roll<input id="perturb-r" type="number" step="0.05" value="0" /></label>
+            <label>pitch<input id="perturb-p" type="number" step="0.05" value="0" /></label>
+            <label>yaw<input id="perturb-yaw" type="number" step="0.05" value="0" /></label>
+          </div>
+          <div id="perturb-pose-info" class="pose-info">选择 contact point 后显示扰动位姿。</div>
+          <button id="render-3d" type="button" disabled>初始化 3D 视角</button>
+          <button id="generate-pre-grasp" type="button" disabled>生成预抓取位姿</button>
+          <button id="reset-perturb" type="button" disabled>重置扰动</button>
+          <button id="save-perturb" type="button" disabled>保存当前扰动位姿</button>
+        </section>
+      </aside>
+    </main>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>

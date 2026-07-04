@@ -1,0 +1,276 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: #202124;
+  background: #f6f7f9;
+  font-family: Arial, "Microsoft YaHei", sans-serif;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 320px 1fr 300px;
+  min-height: 100vh;
+}
+
+.sidebar,
+.right-sidebar {
+  border-right: 1px solid #d8dde6;
+  background: #ffffff;
+  padding: 20px;
+}
+
+.right-sidebar {
+  border-right: 0;
+  border-left: 1px solid #d8dde6;
+}
+
+h1 {
+  margin: 0 0 20px;
+  font-size: 22px;
+}
+
+.control-stack,
+.panel {
+  display: grid;
+  gap: 12px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+select,
+input,
+button {
+  width: 100%;
+  height: 36px;
+  border: 1px solid #c9d0dc;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 14px;
+}
+
+button {
+  cursor: pointer;
+  border-color: #2f6fed;
+  background: #2f6fed;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  border-color: #b8c0cc;
+  background: #b8c0cc;
+}
+
+.check-row {
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  font-weight: 500;
+}
+
+.check-row input {
+  width: 16px;
+  height: 16px;
+}
+
+.panel {
+  margin-top: 22px;
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.point-list {
+  display: grid;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid #d8dde6;
+  border-radius: 6px;
+}
+
+.point-list.empty {
+  color: #6a7280;
+  font-size: 13px;
+}
+
+.viewer {
+  min-width: 0;
+  padding: 20px;
+}
+
+.status {
+  margin-bottom: 12px;
+  min-height: 20px;
+  color: #49515f;
+}
+
+.view-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(360px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+  --view-height: min(68vh, 640px);
+}
+
+.image-wrap,
+.open3d-wrap {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid #d8dde6;
+  background: #ffffff;
+}
+
+.image-wrap {
+  display: grid;
+  place-items: center;
+  height: var(--view-height);
+  min-height: 420px;
+  overflow: hidden;
+}
+
+#frame {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+}
+
+.open3d-wrap {
+  display: grid;
+  place-items: center;
+  height: var(--view-height);
+  min-height: 420px;
+}
+
+#view3d {
+  display: block;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+#view3d:active {
+  cursor: grabbing;
+}
+
+#overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.metadata {
+  margin-top: 14px;
+  padding: 12px;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid #d8dde6;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.perturb-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.perturb-grid label {
+  font-size: 12px;
+}
+
+.pose-info {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid #d8dde6;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #222831;
+  font-size: 12px;
+}
+
+.pose-point {
+  display: grid;
+  gap: 8px;
+}
+
+.pose-point + .pose-point {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #d8dde6;
+}
+
+.pose-point-title {
+  font-weight: 700;
+  color: #202124;
+}
+
+.pose-block {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid #e2e7ef;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.pose-name {
+  font-weight: 700;
+  color: #2f6fed;
+}
+
+.pose-row {
+  display: grid;
+  gap: 3px;
+}
+
+.pose-row span {
+  color: #586174;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pose-row code {
+  display: block;
+  padding: 5px 6px;
+  overflow-wrap: anywhere;
+  border-radius: 4px;
+  background: #f1f4f8;
+  color: #222831;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+}
+
+@media (max-width: 1180px) {
+  .shell {
+    grid-template-columns: 320px 1fr;
+  }
+
+  .right-sidebar {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-top: 1px solid #d8dde6;
+  }
+
+  .view-grid {
+    grid-template-columns: 1fr;
+    --view-height: min(62vh, 560px);
+  }
+}
