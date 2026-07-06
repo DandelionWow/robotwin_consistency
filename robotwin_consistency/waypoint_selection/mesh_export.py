@@ -22,7 +22,8 @@ def export_object_mesh(task_config, task_name, seed, target_triangles=6000):
 
     obj = objects[0]
     model_id = obj.get("model_id")
-    mesh_path = ROBOTWIN_ROOT / "assets" / "objects" / "001_bottle" / "visual" / f"base{model_id}.glb"
+    model_name = obj.get("model_name") or "001_bottle"
+    mesh_path = ROBOTWIN_ROOT / "assets" / "objects" / model_name / "visual" / f"base{model_id}.glb"
     if not mesh_path.exists():
         return None, f"找不到物体 mesh: {mesh_path}"
 
@@ -35,13 +36,14 @@ def export_object_mesh(task_config, task_name, seed, target_triangles=6000):
     mesh.remove_degenerate_triangles()
     mesh.compute_vertex_normals()
     _apply_glb_to_actor_axes(mesh)
-    mesh.transform(_scale_matrix(_model_scale(model_id)))
+    mesh.transform(_scale_matrix(_model_scale(model_name, model_id)))
     mesh.transform(_pose_matrix(obj["pose_world"]))
 
     vertices = np.asarray(mesh.vertices, dtype=np.float32)
     triangles = np.asarray(mesh.triangles, dtype=np.int32)
     return {
         "model_id": int(model_id),
+        "model_name": model_name,
         "name": obj.get("name", "object"),
         "color": _model_color(model_id),
         "vertices": np.round(vertices, 6).tolist(),
@@ -49,8 +51,8 @@ def export_object_mesh(task_config, task_name, seed, target_triangles=6000):
     }, "ok"
 
 
-def _model_scale(model_id):
-    path = ROBOTWIN_ROOT / "assets" / "objects" / "001_bottle" / f"model_data{model_id}.json"
+def _model_scale(model_name, model_id):
+    path = ROBOTWIN_ROOT / "assets" / "objects" / model_name / f"model_data{model_id}.json"
     if not path.exists():
         return [1, 1, 1]
     data = json.loads(path.read_text(encoding="utf-8"))

@@ -17,12 +17,14 @@ let textureLoader = null;
 let spacePressed = false;
 let perturbedFrameCache = new Map();
 let perturbComputeSeq = 0;
+let sceneLoadSeq = 0;
 
 const form = document.getElementById("scene-form");
 const taskConfig = document.getElementById("task-config");
 const taskName = document.getElementById("task-name");
 const seedInput = document.getElementById("seed");
-const preGraspDistanceInput = document.getElementById("pre-grasp-distance");
+const preGraspDisInput = document.getElementById("pre-grasp-dis");
+const graspDisInput = document.getElementById("grasp-dis");
 const refreshInput = document.getElementById("refresh");
 const loadButton = document.getElementById("load-scene");
 const showContactFrames = document.getElementById("show-contact-frames");
@@ -95,7 +97,8 @@ render3dButton.addEventListener("click", reset3dView);
 generatePreGraspButton.addEventListener("click", generatePreGraspPoses);
 resetPerturbButton.addEventListener("click", resetPerturbation);
 savePerturbButton.addEventListener("click", savePerturbation);
-preGraspDistanceInput.addEventListener("input", handlePerturbationChanged);
+preGraspDisInput.addEventListener("input", handlePerturbationChanged);
+graspDisInput.addEventListener("input", handlePerturbationChanged);
 showContactFrames.addEventListener("change", () => {
   overlayState.showContactFrames = showContactFrames.checked;
   refreshVisualizations();
@@ -142,31 +145,44 @@ setup3dInteraction();
 });
 
 async function loadScene() {
+  const seq = ++sceneLoadSeq;
+  perturbComputeSeq += 1;
   const forceRefresh = refreshInput.checked;
+  const requestedScene = currentSceneRequest();
   setStatus(forceRefresh ? "正在重新生成缓存..." : "正在生成 / 加载首帧...");
   loadButton.disabled = true;
   clearOverlay();
   const params = new URLSearchParams({
-    task_config: taskConfig.value,
-    task_name: taskName.value,
-    seed: seedInput.value || "0",
+    task_config: requestedScene.taskConfig,
+    task_name: requestedScene.taskName,
+    seed: String(requestedScene.seed),
     refresh: forceRefresh ? "1" : "0",
   });
 
   try {
     const res = await fetch(`/api/scene?${params.toString()}`);
     const data = await res.json();
+    if (seq !== sceneLoadSeq) return;
     if (!res.ok) {
       setStatus(`加载失败：${data.error || JSON.stringify(data)}`);
+      return;
+    }
+    if (!matchesSceneRequest(requestedScene) || Number(data.seed) !== requestedScene.seed) {
       return;
     }
 
     sceneData = data;
     objectAsset = null;
+    currentModel = null;
+    if (objectRoot) objectRoot.clear();
+    if (frameRoot) frameRoot.clear();
     perturbedFrameCache = new Map();
+    resetPerturbationInputs();
     overlayState.hasDrawn = false;
     overlayState.selectedPointKeys = [];
-    frame.src = `${sceneData.image_url}?t=${Date.now()}`;
+    await loadFrameImage(`${sceneData.image_url}?t=${Date.now()}`, seq);
+    if (seq !== sceneLoadSeq) return;
+    syncCanvasSize();
     createEnvironment3d();
     renderPointList();
     metadata.textContent = JSON.stringify(buildMetadata(sceneData), null, 2);
@@ -176,14 +192,41 @@ async function loadScene() {
     generatePreGraspButton.disabled = false;
     resetPerturbButton.disabled = false;
     savePerturbButton.disabled = false;
-    await loadObjectMesh();
+    await loadObjectMesh(seq);
+    if (seq !== sceneLoadSeq) return;
 
     const cacheText = sceneData.cache_hit ? "已复用缓存。" : "已重新生成缓存。";
     const graspText = hasRobotwinGraspMatrices() ? "" : " 当前缓存缺少 RoboTwin grasp 映射，请勾选“重新生成缓存”刷新。";
     setStatus(`${cacheText}${graspText} 初始不显示坐标系，点击“可视化选中点”后绘制。右侧 3D 左键旋转，右键平移中心，滚轮缩放。`);
   } finally {
-    loadButton.disabled = false;
+    if (seq === sceneLoadSeq) {
+      loadButton.disabled = false;
+    }
   }
+}
+
+function loadFrameImage(src, seq) {
+  frame.removeAttribute("src");
+  syncCanvasSize();
+  clearCanvasOnly();
+  return new Promise((resolve, reject) => {
+    frame.onload = () => {
+      if (seq !== sceneLoadSeq) {
+        resolve();
+        return;
+      }
+      if (frame.decode) {
+        frame.decode().then(resolve).catch(resolve);
+      } else {
+        resolve();
+      }
+    };
+    frame.onerror = () => {
+      if (seq === sceneLoadSeq) reject(new Error("首帧图片加载失败。"));
+      else resolve();
+    };
+    frame.src = src;
+  });
 }
 
 function hasRobotwinGraspMatrices() {
@@ -240,7 +283,7 @@ function drawSelectedPoints() {
   updatePerturbPoseInfo();
 }
 
-async function loadObjectMesh() {
+async function loadObjectMesh(seq = sceneLoadSeq) {
   if (!sceneData) return;
   render3dButton.disabled = true;
   const params = new URLSearchParams({
@@ -253,15 +296,21 @@ async function loadObjectMesh() {
     const res = await fetch(`/api/object_asset?${params.toString()}`);
     const data = await res.json();
     if (!res.ok) {
+      if (seq !== sceneLoadSeq) return;
       setStatus(`3D 模型加载失败：${data.error || JSON.stringify(data)}`);
       return;
     }
+    if (seq !== sceneLoadSeq) return;
     objectAsset = data;
-    await loadTexturedModel(data);
+    await loadTexturedModel(data, seq);
   } catch (error) {
-    setStatus(`3D 模型加载失败：${error.message}`);
+    if (seq === sceneLoadSeq) {
+      setStatus(`3D 模型加载失败：${error.message}`);
+    }
   } finally {
-    render3dButton.disabled = false;
+    if (seq === sceneLoadSeq) {
+      render3dButton.disabled = false;
+    }
   }
 }
 
@@ -287,11 +336,75 @@ function getPerturbation() {
   };
 }
 
+function currentSceneRequest() {
+  return {
+    taskConfig: taskConfig.value,
+    taskName: taskName.value,
+    seed: Number.parseInt(seedInput.value || "0", 10),
+  };
+}
+
+function currentSceneIdentity() {
+  if (!sceneData) return null;
+  return {
+    taskConfig: sceneData.task_config,
+    taskName: sceneData.task_name,
+    seed: Number(sceneData.seed),
+  };
+}
+
+function matchesSceneRequest(request) {
+  const current = currentSceneRequest();
+  return (
+    current.taskConfig === request.taskConfig
+    && current.taskName === request.taskName
+    && current.seed === request.seed
+  );
+}
+
+function matchesLoadedScene(identity) {
+  const current = currentSceneIdentity();
+  return Boolean(current)
+    && current.taskConfig === identity.taskConfig
+    && current.taskName === identity.taskName
+    && current.seed === identity.seed
+    && matchesSceneRequest(identity);
+}
+
+function perturbationSignature(perturbation = getPerturbation()) {
+  return ["x", "y", "z", "r", "p", "yaw"]
+    .map((key) => `${key}:${Number(perturbation[key] || 0).toPrecision(12)}`)
+    .join("|");
+}
+
+function perturbedFrameCacheKey(
+  pointId,
+  identity = currentSceneIdentity(),
+  perturbation = getPerturbation(),
+  preGraspDis = getPreGraspDis(),
+  graspDis = getGraspDis(),
+) {
+  if (!identity) return null;
+  return [
+    identity.taskConfig,
+    identity.taskName,
+    identity.seed,
+    Number(pointId),
+    Number(preGraspDis).toPrecision(12),
+    Number(graspDis).toPrecision(12),
+    perturbationSignature(perturbation),
+  ].join("::");
+}
+
 function resetPerturbation() {
+  resetPerturbationInputs();
+  handlePerturbationChanged();
+}
+
+function resetPerturbationInputs() {
   [perturbX, perturbY, perturbZ, perturbR, perturbP, perturbYaw].forEach((input) => {
     input.value = "0";
   });
-  handlePerturbationChanged();
 }
 
 function handlePerturbKeydown(event) {
@@ -343,9 +456,11 @@ async function savePerturbation() {
     return;
   }
 
-  const preGraspDistance = getPreGraspDistance();
+  if (!validateGraspDistances()) return;
+  const preGraspDis = getPreGraspDis();
+  const graspDis = getGraspDis();
   const items = points.map((point) => {
-    const frames = computeGraspFrameMatrices(point, preGraspDistance);
+    const frames = computeGraspFrameMatrices(point, preGraspDis, graspDis);
     if (!frames.perturbedTcp || !frames.perturbedGrasp || !frames.perturbedPreGrasp) return null;
     return {
       point_id: point.id,
@@ -375,7 +490,8 @@ async function savePerturbation() {
         task_config: taskConfig.value,
         task_name: taskName.value,
         seed: Number.parseInt(seedInput.value || "0", 10),
-        pre_grasp_distance: preGraspDistance,
+        pre_grasp_dis: preGraspDis,
+        grasp_dis: graspDis,
         selected_point_ids: getSelectedPointIds(),
         perturbation: getPerturbation(),
         poses: items,
@@ -446,7 +562,13 @@ async function computePerturbedGraspsFromRobotwin() {
     setStatus("请先选择 contact point。");
     return false;
   }
+  if (!validateGraspDistances()) return false;
   const seq = ++perturbComputeSeq;
+  const requestScene = currentSceneIdentity();
+  if (!requestScene) return false;
+  const requestPerturbation = getPerturbation();
+  const requestPreGraspDis = getPreGraspDis();
+  const requestGraspDis = getGraspDis();
   generatePreGraspButton.disabled = true;
   setStatus("正在基于扰动 contact point 规划预抓取 / 抓取 / TCP 位姿...");
   try {
@@ -454,21 +576,31 @@ async function computePerturbedGraspsFromRobotwin() {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
-        task_config: taskConfig.value,
-        task_name: taskName.value,
-        seed: Number.parseInt(seedInput.value || "0", 10),
+        task_config: requestScene.taskConfig,
+        task_name: requestScene.taskName,
+        seed: requestScene.seed,
         selected_point_ids: selectedIds,
-        pre_grasp_distance: getPreGraspDistance(),
-        perturbation: getPerturbation(),
+        pre_grasp_dis: requestPreGraspDis,
+        grasp_dis: requestGraspDis,
+        perturbation: requestPerturbation,
       }),
     });
     const data = await res.json();
-    if (seq !== perturbComputeSeq) return;
+    if (seq !== perturbComputeSeq || !matchesLoadedScene(requestScene)) return false;
     if (!res.ok) {
       setStatus(`RoboTwin 抓取位姿计算失败：${data.error || JSON.stringify(data)}`);
       return false;
     }
-    perturbedFrameCache = new Map((data.items || []).map((item) => [Number(item.point_id), item]));
+    perturbedFrameCache = new Map((data.items || []).map((item) => [
+      perturbedFrameCacheKey(
+        item.point_id,
+        requestScene,
+        requestPerturbation,
+        requestPreGraspDis,
+        requestGraspDis,
+      ),
+      item,
+    ]));
     updatePerturbPoseInfo();
     renderOverlayFromState();
     render3dScene();
@@ -499,7 +631,7 @@ function updatePerturbPoseInfo() {
 
   const blocks = [];
   points.forEach((point) => {
-    const frames = computeGraspFrameMatrices(point, getPreGraspDistance());
+    const frames = computeGraspFrameMatrices(point, getPreGraspDis(), getGraspDis());
     blocks.push(`
       <section class="pose-point">
         <div class="pose-point-title">point ${point.id}</div>
@@ -553,7 +685,7 @@ function renderOverlayFromState() {
 }
 
 function drawPointAxes(point) {
-  const frames = computeGraspFrames(point, getPreGraspDistance());
+  const frames = computeGraspFrames(point, getPreGraspDis(), getGraspDis());
   if (overlayState.showContactFrames) {
     drawFrame(point.axes_2d, point.projection_valid, `cp${point.id}`, false);
   }
@@ -654,13 +786,26 @@ function clearCanvasOnly() {
   ctx.clearRect(0, 0, overlay.width, overlay.height);
 }
 
-function getPreGraspDistance() {
-  const value = Number.parseFloat(preGraspDistanceInput.value);
+function getPreGraspDis() {
+  const value = Number.parseFloat(preGraspDisInput.value);
   return Number.isFinite(value) && value >= 0 ? value : 0.1;
 }
 
-function computeGraspFrames(point, preGraspDistance) {
-  const matrices = computeGraspFrameMatrices(point, preGraspDistance);
+function getGraspDis() {
+  const value = Number.parseFloat(graspDisInput.value);
+  return Number.isFinite(value) && value >= 0 ? value : 0.0;
+}
+
+function validateGraspDistances() {
+  if (getPreGraspDis() < getGraspDis()) {
+    setStatus("pre_grasp_dis 必须大于或等于 grasp_dis。");
+    return false;
+  }
+  return true;
+}
+
+function computeGraspFrames(point, preGraspDis, graspDis) {
+  const matrices = computeGraspFrameMatrices(point, preGraspDis, graspDis);
   return {
     preGrasp: projectFrame(matrices.preGrasp),
     tcp: projectFrame(matrices.tcp),
@@ -672,17 +817,19 @@ function computeGraspFrames(point, preGraspDistance) {
   };
 }
 
-function computeGraspFrameMatrices(point, preGraspDistance) {
+function computeGraspFrameMatrices(point, preGraspDis = getPreGraspDis(), graspDis = getGraspDis()) {
   const contactMatrix = point.matrix_world;
   const contactToGrasp = contactToGraspMatrix(point);
-  const graspMatrix = multiplyMat4(contactMatrix, contactToGrasp);
+  const contactGraspMatrix = multiplyMat4(contactMatrix, contactToGrasp);
+  const graspMatrix = translatedAlongLocalX(contactGraspMatrix, -graspDis);
   const tcpMatrix = translatedAlongLocalX(graspMatrix, 0.12);
-  const preGraspMatrix = translatedAlongLocalX(graspMatrix, -preGraspDistance);
+  const preGraspMatrix = translatedAlongLocalX(graspMatrix, -(preGraspDis - graspDis));
   const perturbedContactMatrix = multiplyMat4(contactMatrix, deltaMatrix(getPerturbation()));
-  const perturbedGraspMatrix = multiplyMat4(perturbedContactMatrix, contactToGrasp);
+  const perturbedContactGraspMatrix = multiplyMat4(perturbedContactMatrix, contactToGrasp);
+  const perturbedGraspMatrix = translatedAlongLocalX(perturbedContactGraspMatrix, -graspDis);
   const perturbedTcpMatrix = translatedAlongLocalX(perturbedGraspMatrix, 0.12);
-  const perturbedPreGraspMatrix = translatedAlongLocalX(perturbedGraspMatrix, -preGraspDistance);
-  const robotwinFrames = perturbedFrameCache.get(Number(point.id));
+  const perturbedPreGraspMatrix = translatedAlongLocalX(perturbedGraspMatrix, -(preGraspDis - graspDis));
+  const robotwinFrames = perturbedFrameCache.get(perturbedFrameCacheKey(point.id));
   return {
     preGrasp: preGraspMatrix,
     tcp: tcpMatrix,
@@ -924,11 +1071,15 @@ function sync3dCanvasSize() {
   }
 }
 
-async function loadTexturedModel(asset) {
+async function loadTexturedModel(asset, seq = sceneLoadSeq) {
   objectRoot.clear();
   currentModel = null;
   await new Promise((resolve, reject) => {
     gltfLoader.load(asset.mesh_url, (gltf) => {
+      if (seq !== sceneLoadSeq) {
+        resolve();
+        return;
+      }
       const model = gltf.scene;
       model.traverse((node) => {
         if (node.isMesh && node.material) {
@@ -953,7 +1104,7 @@ function updateFrameObjects3d() {
   const selected = new Set(overlayState.selectedPointKeys);
   getAllPoints().forEach((point) => {
     if (!selected.has(point.key)) return;
-    const frames = computeGraspFrameMatrices(point, getPreGraspDistance());
+    const frames = computeGraspFrameMatrices(point, getPreGraspDis(), getGraspDis());
     if (overlayState.showContactFrames) frameRoot.add(makeFrame3d(point.matrix_world, 0.04, `cp${point.id}`));
     if (overlayState.showPreGraspFrames) frameRoot.add(makeFrame3d(frames.preGrasp, 0.05, `pre${point.id}`));
     if (overlayState.showTcpFrames) frameRoot.add(makeFrame3d(frames.tcp, 0.045, `tcp${point.id}`));
@@ -1150,7 +1301,8 @@ function buildMetadata(data) {
     task_config: data.task_config,
     task_name: data.task_name,
     seed: data.seed,
-    pre_grasp_distance: getPreGraspDistance(),
+    pre_grasp_dis: getPreGraspDis(),
+    grasp_dis: getGraspDis(),
     perturbation: getPerturbation(),
     cache_hit: data.cache_hit,
     refreshed: data.refreshed,

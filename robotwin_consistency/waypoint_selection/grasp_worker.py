@@ -1,4 +1,5 @@
 import contextlib
+import inspect
 import importlib
 import json
 import os
@@ -47,11 +48,16 @@ def compute_perturbed_grasps(payload):
         task_env = _load_task(task_name)
         args = _load_task_args(task_config, task_name)
         task_env.setup_demo(now_ep_num=0, seed=int(payload.get("seed", 0)), **args)
-        return task_env.compute_waypoint_perturbed_grasps(
-            [int(point_id) for point_id in payload.get("selected_point_ids", [])],
-            payload.get("perturbation", {}),
-            float(payload.get("pre_grasp_distance", 0.1) or 0.1),
-        )
+        pre_grasp_dis = _payload_float(payload, "pre_grasp_dis", 0.1)
+        grasp_dis = _payload_float(payload, "grasp_dis", 0.0)
+        if pre_grasp_dis < grasp_dis:
+            raise ValueError("pre_grasp_dis must be greater than or equal to grasp_dis")
+        method = task_env.compute_waypoint_perturbed_grasps
+        point_ids = [int(point_id) for point_id in payload.get("selected_point_ids", [])]
+        perturbation = payload.get("perturbation", {})
+        if "grasp_dis" in inspect.signature(method).parameters:
+            return method(point_ids, perturbation, pre_grasp_dis, grasp_dis)
+        return method(point_ids, perturbation, pre_grasp_dis - grasp_dis)
     finally:
         if task_env is not None:
             try:
@@ -114,6 +120,13 @@ def _load_task_args(task_config, task_name):
 def _load_yaml(path):
     with open(path, "r", encoding="utf-8") as f:
         return yaml.load(f.read(), Loader=yaml.FullLoader)
+
+
+def _payload_float(payload, key, default):
+    value = payload.get(key, default)
+    if value is None or value == "":
+        value = default
+    return float(value)
 
 
 def _to_jsonable(value):

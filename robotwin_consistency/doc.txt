@@ -1,6 +1,8 @@
 python robotwin_consistency/waypoint_selection/app.py --host 127.0.0.1 --port 8765
 
 python third_party/robotwin/script/collect_perturbed_data_seed.py \
-    ep2_1_object_pose_adjust_bottle ep2_1_object_pose 0 \
+    --task-name ep2_1_object_pose_adjust_bottle \
+    --task-config ep2_1_object_pose \
+    --seed 0 \
     --waypoint-cache-root /data/wangbowen/PHD_Research/02_Action_Generalization/Action_Hallucination_Verification/robotwin_consistency/database/waypoint_selection_cache \
-    --limit 1
+    --limit 5

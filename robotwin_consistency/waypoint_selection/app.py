@@ -47,7 +47,7 @@ except ImportError:
 
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
 GRASP_WORKER = Path(__file__).resolve().parent / "grasp_worker.py"
-ROBOTWIN_BOTTLE_ASSET_ROOT = ROBOTWIN_ROOT / "assets" / "objects" / "001_bottle"
+ROBOTWIN_OBJECT_ASSET_ROOT = ROBOTWIN_ROOT / "assets" / "objects"
 ROBOTWIN_BACKGROUND_TEXTURE_ROOT = ROBOTWIN_ROOT / "assets" / "background_texture"
 
 
@@ -135,16 +135,17 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
             scene = json.loads(scene_path.read_text(encoding="utf-8"))
             obj = scene["objects"][0]
             model_id = int(obj["model_id"])
+            model_name = obj.get("model_name") or "001_bottle"
         except Exception as exc:
             self._send_json({"error": str(exc)}, status=500)
             return
 
-        asset_rel = f"objects/001_bottle/visual/base{model_id}.glb"
+        asset_rel = f"objects/{model_name}/visual/base{model_id}.glb"
         asset_path = ROBOTWIN_ROOT / "assets" / asset_rel
         if not asset_path.exists():
             self._send_json({"error": f"找不到物体资源: {asset_rel}"}, status=404)
             return
-        model_data_path = ROBOTWIN_ROOT / "assets" / "objects" / "001_bottle" / f"model_data{model_id}.json"
+        model_data_path = ROBOTWIN_ROOT / "assets" / "objects" / model_name / f"model_data{model_id}.json"
         scale = [1, 1, 1]
         if model_data_path.exists():
             model_data = json.loads(model_data_path.read_text(encoding="utf-8"))
@@ -153,6 +154,7 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
                 scale = [scale, scale, scale]
         self._send_json({
             "model_id": model_id,
+            "model_name": model_name,
             "mesh_url": "/robotwin_assets/" + asset_rel,
             "pose_world": obj["pose_world"],
             "scale": scale,
@@ -166,7 +168,7 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
         asset_path = ROBOTWIN_ROOT / "assets" / rel_path
         asset_path = asset_path.resolve()
         allowed = (
-            _is_under(asset_path, ROBOTWIN_BOTTLE_ASSET_ROOT)
+            _is_under(asset_path, ROBOTWIN_OBJECT_ASSET_ROOT)
             or _is_under(asset_path, ROBOTWIN_BACKGROUND_TEXTURE_ROOT)
         )
         if not allowed:
@@ -177,6 +179,9 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
     def _handle_render_3d(self):
         try:
             payload = self._read_json()
+            pre_grasp_dis = _payload_float(payload, "pre_grasp_dis", 0.1)
+            grasp_dis = _payload_float(payload, "grasp_dis", 0.0)
+            _validate_grasp_distances(pre_grasp_dis, grasp_dis)
             output_path, message = render_open3d_view(
                 payload.get("task_config", "ep2_1_object_pose"),
                 payload.get("task_name", SUPPORTED_TASK),
@@ -187,7 +192,8 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
                 show_tcp_frames=bool(payload.get("show_tcp_frames", True)),
                 show_grasp_frames=bool(payload.get("show_grasp_frames", True)),
                 show_perturbed_pre_grasp_frames=bool(payload.get("show_perturbed_pre_grasp_frames", True)),
-                pre_grasp_distance=float(payload.get("pre_grasp_distance", 0.1) or 0.1),
+                pre_grasp_dis=pre_grasp_dis,
+                grasp_dis=grasp_dis,
                 perturbation=payload.get("perturbation", {}),
             )
         except Exception as exc:
@@ -206,7 +212,9 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
             task_name = payload.get("task_name", SUPPORTED_TASK)
             seed = int(payload.get("seed", 0))
             point_ids = payload.get("selected_point_ids", [])
-            pre_grasp_distance = float(payload.get("pre_grasp_distance", 0.1) or 0.1)
+            pre_grasp_dis = _payload_float(payload, "pre_grasp_dis", 0.1)
+            grasp_dis = _payload_float(payload, "grasp_dis", 0.0)
+            _validate_grasp_distances(pre_grasp_dis, grasp_dis)
             perturbation = payload.get("perturbation", {})
             if not point_ids:
                 self._send_json({"items": []})
@@ -217,7 +225,8 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
                 seed,
                 point_ids,
                 perturbation,
-                pre_grasp_distance,
+                pre_grasp_dis,
+                grasp_dis,
             )
         except Exception as exc:
             self._send_json({"error": str(exc)}, status=500)
@@ -235,11 +244,13 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
                 self._send_json({"error": "没有可保存的扰动位姿。"}, status=400)
                 return
 
-            pre_grasp_distance = float(payload.get("pre_grasp_distance", 0.1) or 0.1)
+            pre_grasp_dis = _payload_float(payload, "pre_grasp_dis", 0.1)
+            grasp_dis = _payload_float(payload, "grasp_dis", 0.0)
+            _validate_grasp_distances(pre_grasp_dis, grasp_dis)
             perturbation = payload.get("perturbation", {})
             save_dir = _next_numbered_dir(cache_dir(task_config, task_name, seed) / "perturbation_saves")
             records = [
-                _build_perturbation_record(item, pre_grasp_distance, perturbation)
+                _build_perturbation_record(item, pre_grasp_dis, grasp_dis, perturbation)
                 for item in poses
             ]
             data = {
@@ -247,7 +258,8 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
                 "task_name": task_name,
                 "seed": seed,
                 "saved_at": dt.datetime.now().isoformat(timespec="seconds"),
-                "pre_grasp_distance": pre_grasp_distance,
+                "pre_grasp_dis": pre_grasp_dis,
+                "grasp_dis": grasp_dis,
                 "perturbation": perturbation,
                 "items": records,
             }
@@ -299,6 +311,7 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -308,7 +321,7 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
         allowed = (
             _is_under(path, STATIC_ROOT)
             or _is_under(path, CACHE_ROOT)
-            or _is_under(path, ROBOTWIN_BOTTLE_ASSET_ROOT)
+            or _is_under(path, ROBOTWIN_OBJECT_ASSET_ROOT)
             or _is_under(path, ROBOTWIN_BACKGROUND_TEXTURE_ROOT)
         )
         if not allowed:
@@ -322,6 +335,7 @@ class WaypointSelectionHandler(SimpleHTTPRequestHandler):
         data = path.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", content_type)
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -345,9 +359,10 @@ def _cache_url(task_config, task_name, seed, image_name):
     return "/cache/" + str(rel_path).replace("\\", "/")
 
 
-def compute_perturbed_grasps(task_config, task_name, seed, point_ids, perturbation, pre_grasp_distance):
+def compute_perturbed_grasps(task_config, task_name, seed, point_ids, perturbation, pre_grasp_dis, grasp_dis):
     if task_name not in SUPPORTED_TASKS:
         raise ValueError(f"Only these tasks are supported now: {', '.join(SUPPORTED_TASKS)}")
+    _validate_grasp_distances(pre_grasp_dis, grasp_dis)
 
     payload = {
         "task_config": task_config,
@@ -355,7 +370,8 @@ def compute_perturbed_grasps(task_config, task_name, seed, point_ids, perturbati
         "seed": int(seed),
         "selected_point_ids": [int(point_id) for point_id in point_ids],
         "perturbation": perturbation,
-        "pre_grasp_distance": float(pre_grasp_distance),
+        "pre_grasp_dis": float(pre_grasp_dis),
+        "grasp_dis": float(grasp_dis),
     }
     try:
         proc = subprocess.run(
@@ -436,14 +452,27 @@ def _write_pose_subset(path, records, pose_key, matrix_key):
     path.write_text(json.dumps({"items": items}, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _build_perturbation_record(item, pre_grasp_distance, perturbation):
+def _validate_grasp_distances(pre_grasp_dis, grasp_dis):
+    if pre_grasp_dis < grasp_dis:
+        raise ValueError("pre_grasp_dis must be greater than or equal to grasp_dis")
+
+
+def _payload_float(payload, key, default):
+    value = payload.get(key, default)
+    if value is None or value == "":
+        value = default
+    return float(value)
+
+
+def _build_perturbation_record(item, pre_grasp_dis, grasp_dis, perturbation):
     contact_matrix = item["perturbed_contact_matrix_world"]
     tcp_matrix = item["perturbed_tcp_matrix_world"]
     grasp_matrix = item["perturbed_grasp_matrix_world"]
     pre_matrix = item["perturbed_pre_grasp_matrix_world"]
     return {
         "point_id": int(item["point_id"]),
-        "pre_grasp_distance": float(pre_grasp_distance),
+        "pre_grasp_dis": float(pre_grasp_dis),
+        "grasp_dis": float(grasp_dis),
         "perturbation": perturbation,
         "perturbed_contact_pose_world": _matrix_to_pose(contact_matrix),
         "perturbed_tcp_pose_world": _matrix_to_pose(tcp_matrix),

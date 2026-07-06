@@ -32,7 +32,8 @@ def render_open3d_view(
     show_tcp_frames=True,
     show_grasp_frames=True,
     show_perturbed_pre_grasp_frames=True,
-    pre_grasp_distance=0.1,
+    pre_grasp_dis=0.1,
+    grasp_dis=0.0,
     perturbation=None,
     width=900,
     height=700,
@@ -51,7 +52,8 @@ def render_open3d_view(
         "show_tcp_frames": show_tcp_frames,
         "show_grasp_frames": show_grasp_frames,
         "show_perturbed_pre_grasp_frames": show_perturbed_pre_grasp_frames,
-        "pre_grasp_distance": float(pre_grasp_distance),
+        "pre_grasp_dis": float(pre_grasp_dis),
+        "grasp_dis": float(grasp_dis),
         "perturbation": perturbation or {},
         "width": int(width),
         "height": int(height),
@@ -96,7 +98,8 @@ def _render_open3d_view(
     show_tcp_frames=True,
     show_grasp_frames=True,
     show_perturbed_pre_grasp_frames=True,
-    pre_grasp_distance=0.1,
+    pre_grasp_dis=0.1,
+    grasp_dis=0.0,
     perturbation=None,
     width=900,
     height=700,
@@ -109,6 +112,10 @@ def _render_open3d_view(
     output_path = scene_path.parent / "open3d_view.png"
     selected_ids = {int(point_id) for point_id in selected_point_ids}
     perturbation = perturbation or {}
+    pre_grasp_dis = float(pre_grasp_dis)
+    grasp_dis = float(grasp_dis)
+    if pre_grasp_dis < grasp_dis:
+        raise ValueError("pre_grasp_dis must be greater than or equal to grasp_dis")
 
     renderer = rendering.OffscreenRenderer(int(width), int(height))
     renderer.scene.set_background([1, 1, 1, 1])
@@ -135,11 +142,14 @@ def _render_open3d_view(
 
             contact_matrix = np.asarray(point["matrix_world"], dtype=float)
             contact_to_grasp = _contact_to_grasp_matrix(point, contact_matrix)
-            grasp_matrix = contact_matrix @ contact_to_grasp
+            contact_grasp_matrix = contact_matrix @ contact_to_grasp
+            grasp_matrix = _translate_local_x(contact_grasp_matrix, -grasp_dis)
             tcp_matrix = _translate_local_x(grasp_matrix, 0.12)
-            pre_matrix = _compute_pre_grasp_matrix(grasp_matrix, pre_grasp_distance)
+            pre_matrix = _compute_pre_grasp_matrix(grasp_matrix, pre_grasp_dis, grasp_dis)
             perturbed_contact_matrix = contact_matrix @ _delta_matrix(perturbation)
-            perturbed_grasp_matrix = perturbed_contact_matrix @ contact_to_grasp
+            perturbed_contact_grasp_matrix = perturbed_contact_matrix @ contact_to_grasp
+            perturbed_grasp_matrix = _translate_local_x(perturbed_contact_grasp_matrix, -grasp_dis)
+            perturbed_pre_matrix = _compute_pre_grasp_matrix(perturbed_grasp_matrix, pre_grasp_dis, grasp_dis)
 
             if show_contact_frames:
                 frame = _frame(o3d, contact_matrix, 0.045)
@@ -158,7 +168,7 @@ def _render_open3d_view(
                 renderer.scene.add_geometry(f"grasp_{point_id}", frame, axis_material)
                 geometries.append(frame)
             if show_perturbed_pre_grasp_frames:
-                frame = _frame(o3d, perturbed_grasp_matrix, 0.055)
+                frame = _frame(o3d, perturbed_pre_matrix, 0.055)
                 renderer.scene.add_geometry(f"perturbed_{point_id}", frame, axis_material)
                 geometries.append(frame)
 
@@ -212,8 +222,8 @@ def _pose_matrix(pose):
     return matrix
 
 
-def _compute_pre_grasp_matrix(grasp_matrix, pre_grasp_distance):
-    return _translate_local_x(grasp_matrix, -float(pre_grasp_distance))
+def _compute_pre_grasp_matrix(grasp_matrix, pre_grasp_dis, grasp_dis):
+    return _translate_local_x(grasp_matrix, -(float(pre_grasp_dis) - float(grasp_dis)))
 
 
 def _contact_to_grasp_matrix(point, contact_matrix):
