@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# 本脚本用于把 RoboTwin 生成的 hdf5/video 转成 BWM 需要的 first_frame/action/video 输入格式.
+# 当前 cube_center_x0p00_yneg0p15_z1p00_edge* 实验的批量运行入口见 run_pipeline.sh.
 """Convert RoboTwin HDF5 episodes to direct BWM first-frame/action inputs."""
 
 from __future__ import annotations
