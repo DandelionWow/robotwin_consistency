@@ -18,6 +18,10 @@ import numpy as np
 
 STATE_WIDTH = 26
 DEFAULT_BWM_CONFIG = "configs/infer/infer.yaml"
+DEFAULT_PROMPT = (
+    "In a fixed robotic workspace, generate a rigid, physically consistent embodied robotic arm. "
+    "The arm maintains high stability with no deformation and lifts the bottle upright."
+)
 
 JOINT_INDICES = [0, 1, 2, 3, 4, 5, 6, 13, 14, 15, 16, 17, 18, 19]
 EEF_INDICES = [7, 8, 9, 10, 11, 12, 6, 20, 21, 22, 23, 24, 25, 19]
@@ -105,6 +109,38 @@ def quaternion_wxyz_to_rpy(quat: np.ndarray) -> np.ndarray:
     Rotation = import_rotation()
     quat = np.asarray(quat, dtype=np.float64)
     return Rotation.from_quat(quat, scalar_first=True).as_euler("xyz", degrees=False).astype(np.float32)
+
+
+def state_to_action(state: np.ndarray) -> np.ndarray:
+    """Build BWM's 26-D delta action from a 26-D absolute state sequence."""
+    Rotation = import_rotation()
+    state = np.asarray(state, dtype=np.float32)
+    if state.ndim != 2 or state.shape[1] != STATE_WIDTH or state.shape[0] <= 0:
+        raise ValueError(f"Expected a non-empty (T, {STATE_WIDTH}) state array, got {state.shape}")
+
+    action = np.zeros_like(state, dtype=np.float32)
+    if state.shape[0] > 1:
+        action[:-1] = state[1:] - state[:-1]
+
+        # BWM's reference Parquet stores the next absolute gripper command,
+        # not a gripper delta.
+        action[:-1, 6] = state[1:, 6]
+        action[:-1, 19] = state[1:, 19]
+
+        # Euler subtraction is not a valid rotation delta. Match BWM's demo:
+        # delta_R = current_R^-1 * next_R, represented as xyz Euler angles.
+        for rotation_slice in (slice(10, 13), slice(23, 26)):
+            current = Rotation.from_euler("xyz", state[:-1, rotation_slice])
+            following = Rotation.from_euler("xyz", state[1:, rotation_slice])
+            action[:-1, rotation_slice] = (current.inv() * following).as_euler(
+                "xyz", degrees=False
+            ).astype(np.float32)
+
+    # The final frame has no following state. BWM keeps continuous deltas at
+    # zero while retaining the final absolute gripper command.
+    action[-1, 6] = state[-1, 6]
+    action[-1, 19] = state[-1, 19]
+    return action
 
 
 def ensure_dir(path: Path, dry_run: bool = False) -> None:
@@ -226,10 +262,12 @@ def read_robotwin_episode(hdf5_path: Path, start_frame: int) -> tuple[np.ndarray
     state[:, 20:23] = right_endpose[:, 0:3]
     state[:, 23:26] = quaternion_wxyz_to_rpy(right_endpose[:, 3:7])
 
-    action = np.concatenate(
-        [state[:, 7:13], left_gripper, state[:, 20:26], right_gripper],
-        axis=1,
-    ).astype(np.float32)
+    # Keep the HDF5 endpose gripper values authoritative. They should match
+    # joint_action/vector, but explicitly assigning them also validates their
+    # lengths and mirrors the BWM demo schema.
+    state[:, 6] = left_gripper[:, 0]
+    state[:, 19] = right_gripper[:, 0]
+    action = state_to_action(state)
     return state, action
 
 
@@ -251,8 +289,8 @@ def build_stat(states: list[np.ndarray], actions: list[np.ndarray]) -> dict:
     return {
         "state_joint": compute_stats(state_all[:, JOINT_INDICES]),
         "state_pose": compute_stats(state_all[:, EEF_INDICES]),
-        "action_joint": compute_stats(action_all),
-        "action_pose": compute_stats(action_all),
+        "action_joint": compute_stats(action_all[:, JOINT_INDICES]),
+        "action_pose": compute_stats(action_all[:, EEF_INDICES]),
     }
 
 
@@ -411,8 +449,188 @@ def inspect(args) -> None:
     print("[inspect] BWM default action_type=eef_abs reads observation.state and extracts 14 EEF dimensions.")
 
 
+def load_paired_records(paired_dir: Path) -> list[dict]:
+    record_dir = paired_dir / "records"
+    record_paths = sorted(record_dir.glob("pair_*.json"), key=natural_key)
+    if not record_paths:
+        raise FileNotFoundError(f"No pair_*.json records found under {record_dir}")
+    records = [json.loads(path.read_text(encoding="utf-8")) for path in record_paths]
+    pair_ids = [int(record["pair_id"]) for record in records]
+    expected = list(range(len(records)))
+    if pair_ids != expected:
+        raise ValueError(f"Pair ids must be contiguous from zero, got {pair_ids[:10]}")
+    return records
+
+
+def convert_paired(args) -> Path:
+    """Convert the paired adjust_bottle dataset into BWM training layout."""
+    paired_dir = args.robotwin_dir.resolve()
+    output_dir = args.output_dir.resolve()
+    data_dir = output_dir / "data" / "chunk-000"
+    video_dir = output_dir / "videos" / "chunk-000"
+    first_frame_dir = output_dir / "first_frames" / "chunk-000"
+    bwm_output_dir = output_dir / "bwm_outputs"
+    comparison_dir = output_dir / "comparisons"
+    log_dir = output_dir / "logs"
+    for directory in (
+        output_dir,
+        data_dir,
+        video_dir,
+        first_frame_dir,
+        bwm_output_dir,
+        comparison_dir,
+        log_dir,
+    ):
+        ensure_dir(directory, args.dry_run)
+
+    records = load_paired_records(paired_dir)
+    if args.num_episodes is not None:
+        if args.num_episodes % 2:
+            raise ValueError("Paired conversion requires an even --num_episodes")
+        records = records[: args.num_episodes // 2]
+
+    metadata_rows = []
+    manifest_rows = []
+    pair_rows = []
+    all_states = []
+    all_actions = []
+    total_frames = 0
+
+    for record in records:
+        pair_id = int(record["pair_id"])
+        converted_pair = {
+            "pair_id": pair_id,
+            "base_seed": int(record["base_seed"]),
+            "direction": record["direction"],
+            "boundary_gap": float(record["boundary_gap"]),
+            "base_trajectory_sha256": record["base"]["trajectory_sha256"],
+        }
+        for label_offset, label in enumerate(("success", "failure")):
+            sample = record[label]
+            episode_id = pair_id * 2 + label_offset
+            name = episode_name(episode_id)
+            hdf5_path = paired_dir / sample["hdf5_path"]
+            source_video_path = paired_dir / sample["video_path"]
+            if not hdf5_path.is_file():
+                raise FileNotFoundError(f"Missing paired HDF5: {hdf5_path}")
+            if not source_video_path.is_file():
+                raise FileNotFoundError(f"Missing paired video: {source_video_path}")
+
+            state, action = read_robotwin_episode(hdf5_path, start_frame=0)
+            frame_count = int(action.shape[0])
+            expected_frames = int(sample["frame_count"])
+            if frame_count != expected_frames:
+                raise ValueError(
+                    f"Pair {pair_id} {label} has {frame_count} HDF5 frames, expected {expected_frames}"
+                )
+            all_states.append(state)
+            all_actions.append(action)
+            total_frames += frame_count
+
+            relative_data = Path("data") / "chunk-000" / f"{name}.parquet"
+            relative_video = Path("videos") / "chunk-000" / f"{name}.mp4"
+            relative_first_frame = Path("first_frames") / "chunk-000" / f"{name}.png"
+            action_path = output_dir / relative_data
+            video_path = output_dir / relative_video
+            first_frame_path = output_dir / relative_first_frame
+            pred_path = bwm_output_dir / f"episode{episode_id}.mp4"
+            compare_path = comparison_dir / f"{name}_compare.mp4"
+
+            first_frame = copy_or_crop_video(
+                source_video_path,
+                video_path,
+                start_frame=0,
+                num_frames=frame_count,
+                overwrite=args.overwrite,
+                dry_run=args.dry_run,
+            )
+            write_first_frame(
+                first_frame_path,
+                first_frame,
+                source_video_path,
+                hdf5_path,
+                0,
+                args.first_frame_camera,
+                args.overwrite,
+                args.dry_run,
+            )
+            write_parquet(action_path, state, action, args.overwrite, args.dry_run)
+
+            metadata_row = {
+                "episode_index": episode_id,
+                "length": frame_count,
+                "start_frame": 0,
+                "end_frame": frame_count - 1,
+                "video": relative_video.as_posix(),
+                "action": relative_data.as_posix(),
+                "prompt": args.prompt,
+                "task": record.get("task_name", "adjust_bottle"),
+                "pair_id": pair_id,
+                "label": label,
+                "success": bool(sample["check_success"]),
+                "base_seed": int(record["base_seed"]),
+                "direction": record["direction"],
+                "initial_bottle_xy_offset": [float(value) for value in sample["offset"]],
+                "perturbation_magnitude": float(sample["magnitude"]),
+                "boundary_gap": float(record["boundary_gap"]),
+                "base_trajectory_sha256": record["base"]["trajectory_sha256"],
+                "render_denoiser": record.get("training_render_denoiser", "unknown"),
+            }
+            metadata_rows.append(metadata_row)
+            manifest_rows.append(
+                {
+                    **metadata_row,
+                    "source_hdf5": str(hdf5_path),
+                    "source_video": str(source_video_path),
+                    "first_frame": str(first_frame_path),
+                    "action_parquet": str(action_path),
+                    "converted_video": str(video_path),
+                    "state_shape": list(state.shape),
+                    "action_shape": list(action.shape),
+                    "bwm_output": str(pred_path),
+                    "comparison": str(compare_path),
+                }
+            )
+            converted_pair[f"{label}_episode_index"] = episode_id
+            converted_pair[f"{label}_metadata_index"] = len(metadata_rows) - 1
+            converted_pair[f"{label}_video"] = relative_video.as_posix()
+            converted_pair[f"{label}_action"] = relative_data.as_posix()
+            print(
+                f"[convert-paired] pair={pair_id} label={label} episode={episode_id} "
+                f"frames={frame_count}"
+            )
+        pair_rows.append(converted_pair)
+
+    write_jsonl(output_dir / "metadata.jsonl", metadata_rows, args.overwrite, args.dry_run)
+    write_jsonl(output_dir / "manifest.jsonl", manifest_rows, args.overwrite, args.dry_run)
+    write_jsonl(output_dir / "pairs.jsonl", pair_rows, args.overwrite, args.dry_run)
+    write_json(output_dir / "stat.json", build_stat(all_states, all_actions), args.overwrite, args.dry_run)
+    write_json(
+        output_dir / "summary.json",
+        {
+            "format": "boundless-world-model",
+            "task": "adjust_bottle",
+            "source": str(paired_dir),
+            "pairs": len(pair_rows),
+            "episodes": len(metadata_rows),
+            "success_episodes": sum(row["label"] == "success" for row in metadata_rows),
+            "failure_episodes": sum(row["label"] == "failure" for row in metadata_rows),
+            "total_frames": total_frames,
+            "state_width": STATE_WIDTH,
+            "action_width": STATE_WIDTH,
+            "render_denoisers": sorted({row["render_denoiser"] for row in metadata_rows}),
+        },
+        args.overwrite,
+        args.dry_run,
+    )
+    return output_dir / "manifest.jsonl"
+
+
 def convert(args) -> Path:
     robotwin_dir = args.robotwin_dir
+    if (robotwin_dir / "records").is_dir() and (robotwin_dir / "success" / "data").is_dir():
+        print(f"[convert] detected paired RoboTwin dataset: {robotwin_dir}")
+        return convert_paired(args)
     output_dir = args.output_dir
     first_frame_dir = output_dir / "first_frames"
     action_dir = output_dir / "actions"
@@ -725,6 +943,7 @@ def parse_args():
     parser.add_argument("--arm_filter", choices=["all", "left", "right", "both"], default="all")
     parser.add_argument("--start_frame", type=int, default=0)
     parser.add_argument("--first_frame_camera", default="observation/head_camera/rgb")
+    parser.add_argument("--prompt", default=DEFAULT_PROMPT)
     parser.add_argument("--crop_to_experiment", action="store_true")
     parser.add_argument("--dry_run", action="store_true")
     parser.add_argument("--overwrite", action="store_true")

@@ -1,0 +1,1007 @@
+{
+  "experiment": "rpy_grid_motion_safety",
+  "episode_id": 27,
+  "seed": 0,
+  "save_data": true,
+  "need_plan": false,
+  "reachability_mode": true,
+  "reachability_condition": {
+    "condition_id": 27,
+    "mode": "right",
+    "left_point_id": null,
+    "right_point_id": 3,
+    "dual_mirror_axis": null
+  },
+  "num_reachability_conditions": 56,
+  "abnormal": false,
+  "frame_count": 57,
+  "max_episode_frames": 500,
+  "frame_limit_exceeded": false,
+  "grid_type": "floating_3d_visual_only_grid",
+  "grid_marker_type": "visual_only_sphere_or_box",
+  "camera_visible": true,
+  "grid_center_mode": "arms_midpoint",
+  "left_tcp_reference_xyz": [
+    -0.2979237139225006,
+    -0.31380388140678406,
+    0.9419986009597778
+  ],
+  "right_tcp_reference_xyz": [
+    0.30643314123153687,
+    -0.31279975175857544,
+    0.940998375415802
+  ],
+  "grid_center_xyz": [
+    -0.030745286345481876,
+    -0.21330181658267974,
+    1.02149848818779
+  ],
+  "grid_center_offset_xyz": [
+    -0.035,
+    0.1,
+    0.08
+  ],
+  "grid_center_absolute_xyz": null,
+  "grid_spacing_xyz": [
+    0.09,
+    0.07,
+    0.09
+  ],
+  "num_grid_points": 27,
+  "num_grid_line_bars": 27,
+  "grid_positions": [
+    {
+      "pos_id": 0,
+      "grid_index": [
+        0,
+        0,
+        0
+      ],
+      "xyz": [
+        -0.12074528634548187,
+        -0.2833018165826797,
+        0.93149848818779
+      ],
+      "offset_xyz": [
+        -0.09,
+        -0.07,
+        -0.09
+      ]
+    },
+    {
+      "pos_id": 1,
+      "grid_index": [
+        1,
+        0,
+        0
+      ],
+      "xyz": [
+        -0.030745286345481876,
+        -0.2833018165826797,
+        0.93149848818779
+      ],
+      "offset_xyz": [
+        0.0,
+        -0.07,
+        -0.09
+      ]
+    },
+    {
+      "pos_id": 2,
+      "grid_index": [
+        2,
+        0,
+        0
+      ],
+      "xyz": [
+        0.05925471365451812,
+        -0.2833018165826797,
+        0.93149848818779
+      ],
+      "offset_xyz": [
+        0.09,
+        -0.07,
+        -0.09
+      ]
+    },
+    {
+      "pos_id": 3,
+      "grid_index": [
+        0,
+        1,
+        0
+      ],
+      "xyz": [
+        -0.12074528634548187,
+        -0.21330181658267974,
+        0.93149848818779
+      ],
+      "offset_xyz": [
+        -0.09,
+        0.0,
+        -0.09
+      ]
+    },
+    {
+      "pos_id": 4,
+      "grid_index": [
+        1,
+        1,
+        0
+      ],
+      "xyz": [
+        -0.030745286345481876,
+        -0.21330181658267974,
+        0.93149848818779
+      ],
+      "offset_xyz": [
+        0.0,
+        0.0,
+        -0.09
+      ]
+    },
+    {
+      "pos_id": 5,
+      "grid_index": [
+        2,
+        1,
+        0
+      ],
+      "xyz": [
+        0.05925471365451812,
+        -0.21330181658267974,
+        0.93149848818779
+      ],
+      "offset_xyz": [
+        0.09,
+        0.0,
+        -0.09
+      ]
+    },
+    {
+      "pos_id": 6,
+      "grid_index": [
+        0,
+        2,
+        0
+      ],
+      "xyz": [
+        -0.12074528634548187,
+        -0.14330181658267974,
+        0.93149848818779
+      ],
+      "offset_xyz": [
+        -0.09,
+        0.07,
+        -0.09
+      ]
+    },
+    {
+      "pos_id": 7,
+      "grid_index": [
+        1,
+        2,
+        0
+      ],
+      "xyz": [
+        -0.030745286345481876,
+        -0.14330181658267974,
+        0.93149848818779
+      ],
+      "offset_xyz": [
+        0.0,
+        0.07,
+        -0.09
+      ]
+    },
+    {
+      "pos_id": 8,
+      "grid_index": [
+        2,
+        2,
+        0
+      ],
+      "xyz": [
+        0.05925471365451812,
+        -0.14330181658267974,
+        0.93149848818779
+      ],
+      "offset_xyz": [
+        0.09,
+        0.07,
+        -0.09
+      ]
+    },
+    {
+      "pos_id": 9,
+      "grid_index": [
+        0,
+        0,
+        1
+      ],
+      "xyz": [
+        -0.12074528634548187,
+        -0.2833018165826797,
+        1.02149848818779
+      ],
+      "offset_xyz": [
+        -0.09,
+        -0.07,
+        0.0
+      ]
+    },
+    {
+      "pos_id": 10,
+      "grid_index": [
+        1,
+        0,
+        1
+      ],
+      "xyz": [
+        -0.030745286345481876,
+        -0.2833018165826797,
+        1.02149848818779
+      ],
+      "offset_xyz": [
+        0.0,
+        -0.07,
+        0.0
+      ]
+    },
+    {
+      "pos_id": 11,
+      "grid_index": [
+        2,
+        0,
+        1
+      ],
+      "xyz": [
+        0.05925471365451812,
+        -0.2833018165826797,
+        1.02149848818779
+      ],
+      "offset_xyz": [
+        0.09,
+        -0.07,
+        0.0
+      ]
+    },
+    {
+      "pos_id": 12,
+      "grid_index": [
+        0,
+        1,
+        1
+      ],
+      "xyz": [
+        -0.12074528634548187,
+        -0.21330181658267974,
+        1.02149848818779
+      ],
+      "offset_xyz": [
+        -0.09,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pos_id": 13,
+      "grid_index": [
+        1,
+        1,
+        1
+      ],
+      "xyz": [
+        -0.030745286345481876,
+        -0.21330181658267974,
+        1.02149848818779
+      ],
+      "offset_xyz": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pos_id": 14,
+      "grid_index": [
+        2,
+        1,
+        1
+      ],
+      "xyz": [
+        0.05925471365451812,
+        -0.21330181658267974,
+        1.02149848818779
+      ],
+      "offset_xyz": [
+        0.09,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pos_id": 15,
+      "grid_index": [
+        0,
+        2,
+        1
+      ],
+      "xyz": [
+        -0.12074528634548187,
+        -0.14330181658267974,
+        1.02149848818779
+      ],
+      "offset_xyz": [
+        -0.09,
+        0.07,
+        0.0
+      ]
+    },
+    {
+      "pos_id": 16,
+      "grid_index": [
+        1,
+        2,
+        1
+      ],
+      "xyz": [
+        -0.030745286345481876,
+        -0.14330181658267974,
+        1.02149848818779
+      ],
+      "offset_xyz": [
+        0.0,
+        0.07,
+        0.0
+      ]
+    },
+    {
+      "pos_id": 17,
+      "grid_index": [
+        2,
+        2,
+        1
+      ],
+      "xyz": [
+        0.05925471365451812,
+        -0.14330181658267974,
+        1.02149848818779
+      ],
+      "offset_xyz": [
+        0.09,
+        0.07,
+        0.0
+      ]
+    },
+    {
+      "pos_id": 18,
+      "grid_index": [
+        0,
+        0,
+        2
+      ],
+      "xyz": [
+        -0.12074528634548187,
+        -0.2833018165826797,
+        1.11149848818779
+      ],
+      "offset_xyz": [
+        -0.09,
+        -0.07,
+        0.09
+      ]
+    },
+    {
+      "pos_id": 19,
+      "grid_index": [
+        1,
+        0,
+        2
+      ],
+      "xyz": [
+        -0.030745286345481876,
+        -0.2833018165826797,
+        1.11149848818779
+      ],
+      "offset_xyz": [
+        0.0,
+        -0.07,
+        0.09
+      ]
+    },
+    {
+      "pos_id": 20,
+      "grid_index": [
+        2,
+        0,
+        2
+      ],
+      "xyz": [
+        0.05925471365451812,
+        -0.2833018165826797,
+        1.11149848818779
+      ],
+      "offset_xyz": [
+        0.09,
+        -0.07,
+        0.09
+      ]
+    },
+    {
+      "pos_id": 21,
+      "grid_index": [
+        0,
+        1,
+        2
+      ],
+      "xyz": [
+        -0.12074528634548187,
+        -0.21330181658267974,
+        1.11149848818779
+      ],
+      "offset_xyz": [
+        -0.09,
+        0.0,
+        0.09
+      ]
+    },
+    {
+      "pos_id": 22,
+      "grid_index": [
+        1,
+        1,
+        2
+      ],
+      "xyz": [
+        -0.030745286345481876,
+        -0.21330181658267974,
+        1.11149848818779
+      ],
+      "offset_xyz": [
+        0.0,
+        0.0,
+        0.09
+      ]
+    },
+    {
+      "pos_id": 23,
+      "grid_index": [
+        2,
+        1,
+        2
+      ],
+      "xyz": [
+        0.05925471365451812,
+        -0.21330181658267974,
+        1.11149848818779
+      ],
+      "offset_xyz": [
+        0.09,
+        0.0,
+        0.09
+      ]
+    },
+    {
+      "pos_id": 24,
+      "grid_index": [
+        0,
+        2,
+        2
+      ],
+      "xyz": [
+        -0.12074528634548187,
+        -0.14330181658267974,
+        1.11149848818779
+      ],
+      "offset_xyz": [
+        -0.09,
+        0.07,
+        0.09
+      ]
+    },
+    {
+      "pos_id": 25,
+      "grid_index": [
+        1,
+        2,
+        2
+      ],
+      "xyz": [
+        -0.030745286345481876,
+        -0.14330181658267974,
+        1.11149848818779
+      ],
+      "offset_xyz": [
+        0.0,
+        0.07,
+        0.09
+      ]
+    },
+    {
+      "pos_id": 26,
+      "grid_index": [
+        2,
+        2,
+        2
+      ],
+      "xyz": [
+        0.05925471365451812,
+        -0.14330181658267974,
+        1.11149848818779
+      ],
+      "offset_xyz": [
+        0.09,
+        0.07,
+        0.09
+      ]
+    }
+  ],
+  "arm_motion_mode": "both_mirrored",
+  "dual_mirror_axis": "x",
+  "return_home_between_points": false,
+  "selected_grid_point_ids": [
+    3
+  ],
+  "selected_grid_positions": [
+    {
+      "pos_id": 3,
+      "grid_index": [
+        0,
+        1,
+        0
+      ],
+      "xyz": [
+        -0.12074528634548187,
+        -0.21330181658267974,
+        0.93149848818779
+      ],
+      "offset_xyz": [
+        -0.09,
+        0.0,
+        -0.09
+      ]
+    }
+  ],
+  "marker": {
+    "type": "visual_only_sphere_or_box",
+    "has_visual": true,
+    "has_collision": false,
+    "has_physx_component": false,
+    "uses_add_collision_api": false,
+    "added_collision": false,
+    "point_radius_m": 0.001,
+    "center_point_radius_m": 0.001,
+    "grid_line_thickness_m": 0.001,
+    "show_tcp_reference_markers": true,
+    "tcp_reference_marker_radius_m": 0.001,
+    "component_summary": [
+      {
+        "name": "visual_only_grid_marker_00",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_01",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_02",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_03",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_04",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_05",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_06",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_07",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_08",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_09",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_10",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_11",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_12",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_13",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_14",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_15",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_16",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_17",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_18",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_19",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_20",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_21",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_22",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_23",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_24",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_25",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_marker_26",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_x_00",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_x_01",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_x_02",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_x_03",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_x_04",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_x_05",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_x_06",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_x_07",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_x_08",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_y_09",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_y_10",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_y_11",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_y_12",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_y_13",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_y_14",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_y_15",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_y_16",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_y_17",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_z_18",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_z_19",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_z_20",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_z_21",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_z_22",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_z_23",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_z_24",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_z_25",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_grid_line_z_26",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_left_tcp_reference_marker",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      },
+      {
+        "name": "visual_only_right_tcp_reference_marker",
+        "components": [
+          "RenderBodyComponent"
+        ]
+      }
+    ]
+  },
+  "motion_test": {
+    "path": [
+      [
+        -0.12074528634548187,
+        -0.21330181658267974,
+        0.93149848818779
+      ]
+    ],
+    "target_tolerance_m": 0.035,
+    "moves": [
+      {
+        "step_id": 0,
+        "pos_id": 3,
+        "reachability_condition_id": 27,
+        "reachability_mode": "right",
+        "selected_grid_index": [
+          0,
+          1,
+          0
+        ],
+        "grid_xyz": [
+          -0.12074528634548187,
+          -0.21330181658267974,
+          0.93149848818779
+        ],
+        "left_target_grid_index": null,
+        "left_target_xyz": null,
+        "left_actual_xyz": [
+          -0.2979239225387573,
+          -0.3138047456741333,
+          0.942003607749939
+        ],
+        "left_position_error": null,
+        "left_move_success": null,
+        "right_target_grid_index": [
+          0,
+          1,
+          0
+        ],
+        "right_target_xyz": [
+          -0.12074528634548187,
+          -0.21330181658267974,
+          0.93149848818779
+        ],
+        "right_actual_xyz": [
+          -0.1192641630768776,
+          -0.21177895367145538,
+          0.9308866262435913
+        ],
+        "right_position_error": 0.00221070410094666,
+        "right_move_success": true,
+        "return_home_success": null,
+        "return_home_error": null,
+        "abnormal": false,
+        "frame_count": 57,
+        "max_episode_frames": 500,
+        "frame_limit_exceeded": false,
+        "move_success": true,
+        "error": null
+      }
+    ],
+    "all_moves_success": true,
+    "num_success": 1,
+    "num_failed": 0,
+    "failures": []
+  },
+  "safety_questions": {
+    "marker_added_as_visual_only": true,
+    "added_any_collision_shape": false,
+    "marker_likely_planner_obstacle": false,
+    "left_arm_moved_to_grid_inside": false,
+    "right_arm_moved_to_grid_inside": false,
+    "left_arm_crossed_grid_side_to_side": false,
+    "right_arm_crossed_grid_side_to_side": false,
+    "ik_planning_or_collision_failure": false,
+    "marker_contact_warnings": [],
+    "camera_video_expected_to_show_marker": true,
+    "camera_visible_range_calibration_suitable": true
+  },
+  "camera": {
+    "head_camera_type": "Large_D435",
+    "wrist_camera_type": "Large_D435",
+    "resolution": [
+      640,
+      480
+    ],
+    "marker_visible_in_camera": "manual_check_required"
+  },
+  "conclusion": "pass",
+  "recommended_next_step": "camera_visibility_calibration"
+}
