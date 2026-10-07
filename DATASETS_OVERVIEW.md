@@ -35,6 +35,18 @@ data/adjust_bottle_pi05
 
 这只表示任务集合相同，不表示其中的 episode 一一对应。
 
+### “完整”的边界
+
+按当前 `world_simulator_baseline/runners/ctrl_world/configs/train.yaml` 的数据合同，
+`RoboTwin2.0_640_480_lerobot` 是完整的：50/50 个任务存在，每个任务都有 50 个
+Parquet episode 和 300 个视频，六路视频的元数据均为 640×480，实际总数与配置中
+声明的 2,500 episodes 和 552,287 帧一致。
+
+这里的“完整”专指当前实验使用的单一配置 `aloha-agilex_clean_50`。本机没有证据
+表明还保存了 RoboTwin2.0 的所有其他 embodiment、相机配置或数据变体，因此不能把
+该目录称为“整个 RoboTwin2.0 上游数据集全集”。它也是 LeRobot 组织形式，不是
+Clean-50 专家示范的原始 RoboTwin HDF5 目录。
+
 ## `RoboTwin2.0_640_480_lerobot`
 
 ### 定位
@@ -125,6 +137,76 @@ RPY 后得到 14D EEF 条件：
 ```
 
 因此，这套数据是当前 Ctrl-World 训练和 GT-action 离线验证的主要源数据。
+
+### 已完成的 Ctrl-World Layer-3 转换
+
+源 LeRobot 数据已经完整转换到：
+
+```text
+/data1/liuwenhao/Datasets/CtrlWorld_RoboTwin2.0_640_480
+```
+
+该目录约 14 GB，包含 50 个任务的 2,500 个 `.pt` episode bundle。转换报告为：
+
+| 项目 | 数量 |
+|---|---:|
+| 原始 episode | 2,500 |
+| 训练 episode | 2,000 |
+| 验证 episode | 500 |
+| 原始帧 | 552,287 |
+| stride-3 latent 帧 | 184,938 |
+| 训练 anchor | 139,835 |
+| 验证 anchor | 35,103 |
+| 转换错误 | 0 |
+
+`meta/conversion_report.json` 的 `expected_count_mismatches` 为空，四个 rank 的
+错误 JSONL 也都是空文件。使用当前训练环境执行：
+
+```bash
+/data1/liuwenhao/.conda/envs/ctrl-world/bin/python \
+  runners/ctrl_world/train.py \
+  --config runners/ctrl_world/configs/train.yaml \
+  --check-data-only
+```
+
+实际通过并输出：
+
+```text
+Layer 3 ready: episodes=2500, train=139835, val=35103
+```
+
+### 训练 stat 及其口径
+
+本机存在三层容易混淆的统计文件：
+
+1. `/data1/liuwenhao/Datasets/RoboTwin2.0_640_480_lerobot/stats.json`
+   是 LeRobot 源数据统计，含 16D `eef_abs` 和 14D `joint_abs` 的
+   min/max/mean/std/p01/p99。16D `eef_abs` 仍使用 WXYZ 四元数，不能直接当作当前
+   Ctrl-World 的 14D XYZ/RPY/gripper normalization。
+2. `/data1/liuwenhao/Datasets/RoboTwin2.0_640_480_stats.json`
+   是当前 `train.yaml` 和 `infer.yaml` 实际指定的 normalization stat。它的 key 为
+   `state_pose`，保存 14D XYZ/RPY/gripper 的 `p01` 和 `p99`；SHA256 为
+   `c6a20df37f9e3d22982c0eaeeea63137c5112db26b0858a2bfbcb86e7b9b8469`。
+3. `/data1/liuwenhao/Datasets/CtrlWorld_RoboTwin2.0_640_480/meta/stats.json`
+   是 Layer-3 的可复现性记录。它保存上述 stat 的路径、SHA256、14D action order、
+   实际 normalization 数值，以及对当前 stride-3 bundle 的复核统计。
+
+重新读取全部 Parquet 并把 16D WXYZ `eef_abs` 转为 14D XYZ/RPY/gripper 后，得到：
+
+| 重算口径 | 帧数 | 相对当前 stat 的最大 p01 差 | 最大 p99 差 |
+|---|---:|---:|---:|
+| 训练 episode 0–39 | 441,471 | 0.012769 | 0.018513 |
+| 验证 episode 40–49 | 110,816 | 0.056125 | 0.082125 |
+| 全部 episode 0–49 | 552,287 | 7.45e-9 | 2.38e-7 |
+
+因此可以确认：当前 14D `RoboTwin2.0_640_480_stats.json` 是按全部 2,500 个
+episode、552,287 个原始帧计算的，不是只按训练 episode 0–39 计算的。当前
+train/infer 配置和 Layer-3 元数据引用的都是这份全数据 stat；为了复现当前配置，
+不应原地修改它。
+
+如果后续实验要求严格避免验证集参与 normalization，应另存一份 train-only stat，
+在新配置中引用它，并更新或重新生成 Layer-3 `meta/stats.json`。否则
+`--check-data-only` 会因 stat SHA256 与现有 Layer-3 元数据不一致而拒绝启动。
 
 ## `data`
 
@@ -253,3 +335,5 @@ Pi0.5 rollout (`data`)
    评测源。
 5. 不要把 HDF5 的 `joint_action/vector`、Pickle 的策略输出块和转换后的 14D EEF
    条件视为同一语义。当前世界模型适配器明确使用执行后的 end-effector 记录。
+6. 当前训练 normalization stat 包含验证 episode 40–49。复现当前配置时应保持
+   不变；设计严格新实验时应显式决定是否改用 train-only stat，并记录文件哈希。
