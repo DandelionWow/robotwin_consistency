@@ -4,3 +4,7 @@
 [submodule "third_party/boundless-world-model"]
 	path = third_party/boundless-world-model
 	url = https://github.com/DandelionWow/boundless-world-model
+[submodule "third_party/WorldArena"]
+	path = third_party/WorldArena
+	url = https://github.com/Liuwwhh/WorldArena.git
+	branch = custom/eight-metrics
