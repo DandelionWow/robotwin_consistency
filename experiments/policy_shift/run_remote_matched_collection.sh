@@ -151,6 +151,12 @@ if [[ "$mode" == "preflight" ]]; then
   exit 0
 fi
 
+if [[ -d "$output_dir/.staging" && -n "$(find "$output_dir/.staging" -mindepth 1 -print -quit)" ]]; then
+  echo "Formal output contains preserved staging data: $output_dir/.staging" >&2
+  echo "Inspect it and move it intact to outputs/policy_shift/logs/rejected_staging/ before collection." >&2
+  exit 1
+fi
+
 for index in "${!tasks[@]}"; do
   task=${tasks[$index]}
   seed=${seeds[$index]}
@@ -169,6 +175,13 @@ if [[ "$manifest_count" -ne 6 ]]; then
   echo "Expected exactly 6 pair manifests, found $manifest_count" >&2
   exit 1
 fi
+for index in "${!tasks[@]}"; do
+  expected_manifest="$output_dir/${tasks[$index]}__seed${seeds[$index]}/manifest.json"
+  if [[ ! -f "$expected_manifest" ]]; then
+    echo "Missing expected formal pair manifest: $expected_manifest" >&2
+    exit 1
+  fi
+done
 
 (
   cd -- "$output_dir"

@@ -172,6 +172,13 @@ The collector refuses to overwrite an existing final or staging pair. On a
 failure, inspect and preserve the failing log and `.staging/<pair_id>` rather
 than deleting it automatically.
 
+Before the new formal run, move the preserved rejected
+`blocks_ranking_size__seed200001` staging directory intact to
+`outputs/policy_shift/logs/rejected_staging/`. Do not delete it. The runner
+refuses formal collection while any prior content remains under the formal
+output directory's `.staging/`, preventing rejected data from entering the
+transfer or checksum manifest.
+
 ## Acceptance and return
 
 The expected directory is:
