@@ -148,6 +148,21 @@ cp scripts/local.example.sh scripts/local.sh
 
 然后更新 `scripts/local.sh` 中的 `MODEL_PATHS` 和 `CKPT_PATH`.
 
+### 5. 使用转换后的 RoboTwin 数据训练 BWM
+
+`robotwin_to_bwm.py` 转换后的数据目录包含 `metadata.jsonl`、`stat.json`、`videos/` 和 `data/`。子模块中的 `configs/train/train_wan22_ti2v_5b_action_adaln.yaml` 使用原始视频和绝对末端位姿动作，可直接读取这个格式；训练与推理代码都保留在同一个 BWM 子模块中。
+
+```bash
+cd third_party/boundless-world-model
+cp scripts/train_local.example.sh scripts/train_local.sh
+```
+
+在 `scripts/train_local.sh` 中设置 `PYTHON_BIN`、`MODEL_DIR`、`DATASET_DIR`（转换输出目录）和 `OUTPUT_PATH`。示例文件已将 `DATASET_METADATA_PATH` 和 `ACTION_STAT_PATH` 指向该目录下的 `metadata.jsonl` 与 `stat.json`。准备好模型权重和 GPU 环境后运行:
+
+```bash
+bash scripts/train_example.sh
+```
+
 ## 提交和推送流程
 
 开发者需要根据实际改动位置分别提交. 三个仓库是独立 Git 仓库, 主仓库只记录 submodule 的具体 commit 指针.
