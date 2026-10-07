@@ -1,0 +1,136 @@
+{
+  "status": "PASS",
+  "policy_config": "/data1/liuwenhao/Projects/robotwin_consistency/experiments/policy_shift/configs/pi05_hanging_mug.json",
+  "policy_config_sha256": "d186a2dd97e92652c78f90203b14cec2738b3c4a800418f4c221577698dff669",
+  "checkpoint": {
+    "kind": "orbax_jax",
+    "path": "/data1/liuwenhao/Projects/robotwin_consistency/third_party/robotwin/policy/pi05/checkpoints/pi05_base_aloha_lora/hanging_mug_demo_clean_pi05_lora_30000_wandb/30000",
+    "file_count": 14,
+    "total_bytes": 6335777835,
+    "files": [
+      {
+        "path": "_CHECKPOINT_METADATA",
+        "bytes": 417,
+        "sha256": "72735e4045239bd821db2a30268d5209b6ae8cc0bb1d97159049f76083148772"
+      },
+      {
+        "path": "assets/hanging_mug-demo_clean_100-100/norm_stats.json",
+        "bytes": 3357,
+        "sha256": "96af1928c02f522e3cdd3c51a03ff27207c10db3d21b99a52b878ab3cc2f3d98"
+      },
+      {
+        "path": "params/_METADATA",
+        "bytes": 30870,
+        "sha256": "59e3a7ada60518686cea34320f2a83685de35aa8943a9bb1818a15e055b92337"
+      },
+      {
+        "path": "params/_sharding",
+        "bytes": 17773,
+        "sha256": "54899ee3f4d45eee96ddada379a19a9da1324792b141fa0449608620571e6b01"
+      },
+      {
+        "path": "params/d/b86577897651c6118acc33c8a8d68866",
+        "bytes": 2559,
+        "sha256": "cc7598500b4f80346b2bde5024d80177dcc7784280e236dc2b80740f773f948a"
+      },
+      {
+        "path": "params/manifest.ocdbt",
+        "bytes": 118,
+        "sha256": "1e13c2c31cf8cf628f89b7cc816c870d2cc95d73a1f4603cd000e034dab50f34"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/10e692f99ead436aa2ba8b9f7d00926e",
+        "bytes": 945630233,
+        "sha256": "32d4c0a1bd004c2399934d517c10565222e2216d5d32e0910a103b150ce04ea7"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/298455e5fe0cfeb7e208cbcbf40d8d08",
+        "bytes": 227,
+        "sha256": "cd6f48096e89d3472bb5db60aad8fd31b986b504541f21aad3b54ba47c88b882"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/340c3f116d60570b93ed5b38098be37a",
+        "bytes": 2175634875,
+        "sha256": "d6feee849c7f1c82f6146e483129e84b4a8657819b16b14139fc5bdf07c2d067"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/6f1ee403f9cec8444db600b0f78f39c4",
+        "bytes": 2720433402,
+        "sha256": "e51df3420a0e9f9690c14c801169b889b3bab1448bae55905d5bd5756428b925"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/a0cc9ae381fff09589684b44e5488239",
+        "bytes": 119110,
+        "sha256": "13ab43017f166a054b173f03cd852ac6a62fce58f851ea32092f81d3c679c08c"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/d6dbc63c0970a6793d4d6d4c2271a277",
+        "bytes": 8054856,
+        "sha256": "527d6feac945944109911e52b3095c6fefd5d7f8f5d3bb4e875838ea69bb64c1"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/dbe73efaddd1f66d86a6378d945e1908",
+        "bytes": 485849668,
+        "sha256": "72f2d8cf07be096cce5ef4a620088f30e11afb7f7b3b0281b9f79a7effb12956"
+      },
+      {
+        "path": "params/ocdbt.process_0/manifest.ocdbt",
+        "bytes": 370,
+        "sha256": "cf97ec5a7f3c088d92c6d2eddf0aeaa1d14e0d8024494bb1fd70ad7aab6b92b7"
+      }
+    ],
+    "sha256": "357547e06169c782f2e974aba4d48d2f38af91526fa1b8423017ce483b090951"
+  },
+  "checkpoint_source": "JackieMM/RoboTwin-pi05-30000-checkpoints",
+  "checkpoint_source_revision": "4c5a1c2be00d4019b649d72dc81fe1bbf9d999a4",
+  "model_code_commit": "2d3a8eb9804d2e5e239435d32f45da6277503d73",
+  "runtime": {
+    "python": "/data1/liuwenhao/.conda/envs/pi05-blackwell/bin/python",
+    "jax": "0.6.2",
+    "visible_physical_gpu": 0,
+    "jax_devices": [
+      "cuda:0"
+    ],
+    "cuda_root": "/data1/liuwenhao/.conda/envs/cuda128-robotwin",
+    "ptxas_version": "Build cuda_12.8.r12.8/compiler.35583870_0",
+    "python_no_user_site": true
+  },
+  "input": {
+    "observation_hdf5": "/data1/liuwenhao/Datasets/data/hanging_mug_pi05/demo_clean/run_0000/data/episode2.hdf5",
+    "instruction": "hang the mug on the rack",
+    "image_shapes": [
+      [
+        480,
+        640,
+        3
+      ],
+      [
+        240,
+        320,
+        3
+      ],
+      [
+        240,
+        320,
+        3
+      ]
+    ],
+    "state_shape": [
+      14
+    ]
+  },
+  "output": {
+    "action_shape": [
+      50,
+      14
+    ],
+    "dtype": "float64",
+    "finite": true,
+    "minimum": -1.1452800326480135,
+    "maximum": 2.0786084480649367
+  },
+  "timing_seconds": {
+    "load": 16.01018425449729,
+    "first_inference": 16.600337979383767
+  }
+}

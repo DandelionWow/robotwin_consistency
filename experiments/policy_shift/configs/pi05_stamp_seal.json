@@ -1,0 +1,11 @@
+{
+  "train_config_name": "pi05_base_aloha_lora",
+  "model_name": "stamp_seal_demo_clean_pi05_lora_30000_wandb",
+  "checkpoint_id": 30000,
+  "pi0_step": 50,
+  "asset_id": "stamp_seal-demo_clean_100-100",
+  "checkpoint_sha256": "1aafcbd5d54fc6c3e83ae21b6a0b4a62b295d675eb89d60696260c95b2cb9349",
+  "checkpoint_source": "JackieMM/RoboTwin-pi05-30000-checkpoints",
+  "checkpoint_source_revision": "4c5a1c2be00d4019b649d72dc81fe1bbf9d999a4",
+  "checkpoint_source_path": "checkpoints/pi05/pi05_base_aloha_lora/stamp_seal_demo_clean_pi05_lora_30000_wandb/30000"
+}

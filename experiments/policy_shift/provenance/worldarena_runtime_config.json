@@ -1,0 +1,23 @@
+{
+  "ckpt": {
+    "aesthetic_quality": {
+      "clip": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/aesthetic_quality/ViT-L-14.pt",
+      "aesthetic_head": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/aesthetic_quality/sa_0_4_vit_l_14_linear.pth"
+    },
+    "image_quality": {
+      "musiq": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/image_quality/musiq_spaq_ckpt-358bb6af.pth"
+    },
+    "subject_consistency": {
+      "repo": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/subject_consistency/facebookresearch_dino_main",
+      "weight": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/subject_consistency/dino_vitbase16_pretrain.pth",
+      "model": "dino_vitb16",
+      "raft": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/subject_consistency/raft-things.pth"
+    },
+    "depth_accuracy": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/depth_accuracy/Depth-Anything-V2-Small-hf",
+    "sam3_model_ckpt": "/data1/liuwenhao/Projects/WorldArena/sam",
+    "jepa_similarity": {
+      "model_dir": "/data1/liuwenhao/Projects/WorldArena/video_quality/JEDi/pretrained_models",
+      "config": "/data1/liuwenhao/Projects/robotwin_consistency/third_party/WorldArena/video_quality/JEDi/configs/vith16_ssv2_16x2x3.yaml"
+    }
+  }
+}

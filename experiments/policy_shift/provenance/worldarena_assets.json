@@ -1,0 +1,59 @@
+{
+  "worldarena_code_root": "/data1/liuwenhao/Projects/robotwin_consistency/third_party/WorldArena",
+  "worldarena_commit": "b30f352bc727e84c5f6bcd484a3f348f983c708f",
+  "assets_root": "/data1/liuwenhao/Projects/WorldArena",
+  "external_python_executed": false,
+  "dino_source_commit": "7c446df5b9f45747937fb0d72314eb9f7b66930a",
+  "files": {
+    "clip_vit_l14": {
+      "path": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/aesthetic_quality/ViT-L-14.pt",
+      "bytes": 932768134,
+      "sha256": "b8cca3fd41ae0c99ba7e8951adf17d267cdb84cd88be6f7c2e0eca1737a03836"
+    },
+    "aesthetic_head": {
+      "path": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/aesthetic_quality/sa_0_4_vit_l_14_linear.pth",
+      "bytes": 4071,
+      "sha256": "2cd4e60f4f24ae3bcd57b847b13c1f3ba27edc28cc1a7f9ce74ee9f421243cba"
+    },
+    "musiq_spaq": {
+      "path": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/image_quality/musiq_spaq_ckpt-358bb6af.pth",
+      "bytes": 108610983,
+      "sha256": "358bb6af275e28ea56821d44fb55c6cb83645db11f394d3ad65b2d149965ab50"
+    },
+    "dino_vitb16": {
+      "path": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/subject_consistency/dino_vitbase16_pretrain.pth",
+      "bytes": 343242485,
+      "sha256": "bf34ad0f424b9029b593e8dc3ed553bf26e88bcba0d32bf3e62a6209cb64c85e"
+    },
+    "raft_things": {
+      "path": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/subject_consistency/raft-things.pth",
+      "bytes": 21108000,
+      "sha256": "fcfa4125d6418f4de95d84aec20a3c5f4e205101715a79f193243c186ac9a7e1"
+    },
+    "depth_anything_v2_small": {
+      "path": "/data1/liuwenhao/Projects/WorldArena/video_quality/models_downloaded/depth_accuracy/Depth-Anything-V2-Small-hf/model.safetensors",
+      "bytes": 99173660,
+      "sha256": "3152477ce0d8d6978d76b995120de97cb5b928701fd0f817769f59e249a16b70"
+    },
+    "sam3": {
+      "path": "/data1/liuwenhao/Projects/WorldArena/sam/sam3.pt",
+      "bytes": 3450062241,
+      "sha256": "9999e2341ceef5e136daa386eecb55cb414446a00ac2b55eb2dfd2f7c3cf8c9e"
+    },
+    "sam3_tokenizer": {
+      "path": "/data1/liuwenhao/Projects/WorldArena/sam/bpe_simple_vocab_16e6.txt.gz",
+      "bytes": 1356917,
+      "sha256": "924691ac288e54409236115652ad4aa250f48203de50a9e4722a6ecd48d6804a"
+    },
+    "jepa_vith16": {
+      "path": "/data1/liuwenhao/Projects/WorldArena/video_quality/JEDi/pretrained_models/vith16.pth.tar",
+      "bytes": 10393043714,
+      "sha256": "6fa02687973a8337c00d999ee3a17d539a0224c4c89b862150e65cbdb2f67b61"
+    },
+    "jepa_ssv2_probe": {
+      "path": "/data1/liuwenhao/Projects/WorldArena/video_quality/JEDi/pretrained_models/ssv2-probe.pth.tar",
+      "bytes": 225721835,
+      "sha256": "133a6909fe46d464940176e0a2c9e0f08c256a1423be1191538083063118629a"
+    }
+  }
+}

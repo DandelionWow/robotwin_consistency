@@ -1,0 +1,11 @@
+{
+  "train_config_name": "pi05_base_aloha_lora",
+  "model_name": "hanging_mug_demo_clean_pi05_lora_30000_wandb",
+  "checkpoint_id": 30000,
+  "pi0_step": 50,
+  "asset_id": "hanging_mug-demo_clean_100-100",
+  "checkpoint_sha256": "357547e06169c782f2e974aba4d48d2f38af91526fa1b8423017ce483b090951",
+  "checkpoint_source": "JackieMM/RoboTwin-pi05-30000-checkpoints",
+  "checkpoint_source_revision": "4c5a1c2be00d4019b649d72dc81fe1bbf9d999a4",
+  "checkpoint_source_path": "checkpoints/pi05/pi05_base_aloha_lora/hanging_mug_demo_clean_pi05_lora_30000_wandb/30000"
+}

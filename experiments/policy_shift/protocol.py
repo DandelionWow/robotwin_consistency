@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Sequence
@@ -23,6 +24,25 @@ METRIC_DIRECTIONS = {
     "trajectory_accuracy": "higher",
 }
 
+FORMAL_PROVENANCE_FIELDS = (
+    "seed_mapping_status",
+    "failure_label_status",
+    "policy_checkpoint_status",
+    "task_config_status",
+)
+PAIRWISE_METRICS = (
+    "psnr",
+    "ssim",
+    "trajectory_accuracy",
+    "depth_accuracy",
+    "subject_consistency",
+    "image_quality",
+    "aesthetic_quality",
+)
+SAMPLE_ID_PATTERN = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9_.-]*__seed-?[0-9]+__(expert|pi05)__(early|middle|late)__r[0-9]+$"
+)
+
 
 @dataclass(frozen=True)
 class WindowSpec:
@@ -31,6 +51,7 @@ class WindowSpec:
     window_start: int
     history_indices: tuple[int, ...]
     future_indices: tuple[int, ...]
+    slot: str | None = None
 
     @property
     def all_indices(self) -> tuple[int, ...]:
@@ -43,6 +64,194 @@ def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
         while chunk := handle.read(chunk_size):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def checkpoint_identity(checkpoint_dir: Path) -> dict[str, Any]:
+    """Hash every inference-relevant file in a PyTorch or Orbax checkpoint.
+
+    The public RoboTwin Pi0.5 checkpoints use an Orbax directory rather than a
+    single weight file.  Hashing one OCDBT shard would therefore identify only
+    part of the policy.  This function creates a canonical, path-sensitive
+    manifest and hashes that manifest to obtain the policy identity.
+    """
+
+    checkpoint_dir = Path(checkpoint_dir).resolve()
+    if not checkpoint_dir.is_dir():
+        raise FileNotFoundError(f"Missing checkpoint directory: {checkpoint_dir}")
+
+    pytorch_weight = checkpoint_dir / "model.safetensors"
+    params_dir = checkpoint_dir / "params"
+    assets_dir = checkpoint_dir / "assets"
+    if pytorch_weight.is_file():
+        kind = "pytorch_safetensors"
+        roots = [pytorch_weight, assets_dir]
+    elif params_dir.is_dir():
+        kind = "orbax_jax"
+        roots = [params_dir, assets_dir]
+        metadata = checkpoint_dir / "_CHECKPOINT_METADATA"
+        if metadata.is_file():
+            roots.append(metadata)
+    else:
+        raise FileNotFoundError(
+            f"Checkpoint has neither model.safetensors nor params/: {checkpoint_dir}"
+        )
+    if not assets_dir.is_dir():
+        raise FileNotFoundError(f"Checkpoint is missing assets/: {checkpoint_dir}")
+
+    files: list[Path] = []
+    for root in roots:
+        if root.is_file():
+            files.append(root)
+        else:
+            files.extend(path for path in root.rglob("*") if path.is_file())
+    files = sorted(set(files), key=lambda path: path.relative_to(checkpoint_dir).as_posix())
+    if not files:
+        raise ValueError(f"Checkpoint contains no inference files: {checkpoint_dir}")
+    if any(path.is_symlink() for path in files):
+        raise ValueError(f"Checkpoint identity refuses symlinked files: {checkpoint_dir}")
+
+    records = [
+        {
+            "path": path.relative_to(checkpoint_dir).as_posix(),
+            "bytes": path.stat().st_size,
+            "sha256": sha256_file(path),
+        }
+        for path in files
+    ]
+    canonical = json.dumps(records, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return {
+        "kind": kind,
+        "path": str(checkpoint_dir),
+        "file_count": len(records),
+        "total_bytes": sum(record["bytes"] for record in records),
+        "files": records,
+        "sha256": hashlib.sha256(canonical).hexdigest(),
+    }
+
+
+def legacy_episode_formal_eligible(record: dict[str, Any]) -> bool:
+    """Return true only when every required legacy provenance field has direct evidence."""
+
+    return all(record.get(field) == "CONFIRMED" for field in FORMAL_PROVENANCE_FIELDS)
+
+
+def verified_failure_label(label_source: str, success: bool | None) -> str:
+    """Prevent a filename token from being promoted to verified ground truth."""
+
+    source = str(label_source).strip().lower()
+    if source in {"episode_metadata", "collector_manifest", "task_success_check"}:
+        if success is None:
+            raise ValueError(f"{label_source} requires an explicit boolean success value")
+        return "VERIFIED_FAILURE" if not success else "VERIFIED_SUCCESS"
+    if source in {"filename", "filename-labelled", "filename_labeled"}:
+        return "FILENAME_LABELLED_FAILURE" if success is False else "UNVERIFIED"
+    return "UNKNOWN"
+
+
+def _canonicalize(value: Any, precision: int) -> Any:
+    if isinstance(value, np.ndarray):
+        value = value.tolist()
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, dict):
+        return {str(key): _canonicalize(value[key], precision) for key in sorted(value)}
+    if isinstance(value, (list, tuple)):
+        items = list(value)
+        if items and all(isinstance(item, dict) and "name" in item for item in items):
+            items = sorted(items, key=lambda item: str(item["name"]))
+        return [_canonicalize(item, precision) for item in items]
+    if isinstance(value, bool) or value is None or isinstance(value, (str, int)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("Canonical state records cannot contain NaN or infinity")
+        rounded = round(value, precision)
+        return 0.0 if rounded == 0.0 else rounded
+    raise TypeError(f"Unsupported canonical state value: {type(value).__name__}")
+
+
+def canonical_state_json(record: dict[str, Any], precision: int = 6) -> str:
+    if not isinstance(record, dict):
+        raise TypeError("Initial-state record must be a dictionary")
+    payload = _canonicalize(record, int(precision))
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def state_fingerprint(record: dict[str, Any], precision: int = 6) -> str:
+    return hashlib.sha256(canonical_state_json(record, precision).encode("utf-8")).hexdigest()
+
+
+def require_matching_initial_state(expert_record: dict[str, Any], policy_record: dict[str, Any]) -> str:
+    expert = state_fingerprint(expert_record)
+    policy = state_fingerprint(policy_record)
+    if expert != policy:
+        raise ValueError(f"STATE_MISMATCH: expert={expert} policy={policy}")
+    return expert
+
+
+def validate_reproducible_code_provenance(provenance: dict[str, Any]) -> None:
+    """A dirty RoboTwin checkout is reproducible only with its saved patch hash."""
+
+    if not provenance.get("robotwin_commit"):
+        raise ValueError("Missing robotwin_commit")
+    if provenance.get("robotwin_dirty") and not provenance.get("robotwin_patch_sha256"):
+        raise ValueError("Dirty RoboTwin checkout requires robotwin_patch_sha256")
+
+
+def pair_id(task: str, env_seed: int) -> str:
+    task = str(task).strip()
+    if not task or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", task):
+        raise ValueError(f"Unsafe task name for pair_id: {task!r}")
+    return f"{task}__seed{int(env_seed)}"
+
+
+def generation_seed(pair_identifier: str, window_slot: str, repeat_id: int) -> int:
+    if window_slot not in {"early", "middle", "late"}:
+        raise ValueError(f"Unknown window slot: {window_slot}")
+    payload = f"{pair_identifier}\0{window_slot}\0{int(repeat_id)}".encode("utf-8")
+    return int.from_bytes(hashlib.sha256(payload).digest()[:8], "big") % (2**31)
+
+
+def worldarena_sample_id(
+    pair_identifier: str,
+    side: str,
+    slot: str,
+    repeat_id: int,
+) -> str:
+    if side not in {"expert", "pi05"}:
+        raise ValueError(f"Unknown side: {side}")
+    sample_id = f"{pair_identifier}__{side}__{slot}__r{int(repeat_id)}"
+    if not SAMPLE_ID_PATTERN.fullmatch(sample_id):
+        raise ValueError(f"Invalid WorldArena sample_id: {sample_id}")
+    return sample_id
+
+
+def artifact_directory(
+    root: Path,
+    pair_identifier: str,
+    side: str,
+    slot: str,
+    repeat_id: int,
+    *,
+    require_absent: bool = False,
+) -> Path:
+    sample_id = worldarena_sample_id(pair_identifier, side, slot, repeat_id)
+    path = Path(root) / pair_identifier / side / slot / f"r{int(repeat_id)}"
+    if require_absent and path.exists():
+        raise FileExistsError(f"Refusing to overwrite artifact directory for {sample_id}: {path}")
+    return path
+
+
+def worldarena_summary_row(sample_id: str, gt_path: Path, generated_video: Path) -> dict[str, str]:
+    if not SAMPLE_ID_PATTERN.fullmatch(str(sample_id)):
+        raise ValueError(f"Invalid WorldArena sample_id: {sample_id}")
+    gt_path = Path(gt_path).resolve()
+    generated_video = Path(generated_video).resolve()
+    return {
+        "sample_id": str(sample_id),
+        "gt_path": str(gt_path),
+        "generated_video": str(generated_video),
+    }
 
 
 def read_metadata(path: Path) -> list[dict[str, Any]]:
@@ -95,6 +304,93 @@ def build_windows(
         future = tuple(range(start + int(history_frames), start + total))
         windows.append(WindowSpec(start, history, future))
     return windows
+
+
+def select_protocol_windows(
+    episode_length: int,
+    history_frames: int = 9,
+    future_frames: int = 72,
+) -> list[WindowSpec]:
+    """Select the fixed early/middle/late protocol windows, deduplicated in slot order."""
+
+    episode_length = int(episode_length)
+    total = int(history_frames) + int(future_frames)
+    if episode_length < total:
+        return []
+    max_start = episode_length - total
+    candidates = (
+        ("early", 0),
+        ("middle", max_start // 2),
+        ("late", max_start),
+    )
+    windows: list[WindowSpec] = []
+    seen: set[int] = set()
+    for slot, start in candidates:
+        if start in seen:
+            continue
+        seen.add(start)
+        history = tuple(range(start, start + int(history_frames)))
+        future = tuple(range(start + int(history_frames), start + total))
+        windows.append(WindowSpec(start, history, future, slot=slot))
+    return windows
+
+
+def pair_length_eligibility(
+    expert_length: int,
+    policy_length: int,
+    required_length: int = 81,
+) -> dict[str, Any]:
+    expert_short = int(expert_length) < int(required_length)
+    policy_short = int(policy_length) < int(required_length)
+    return {
+        "eligible": not (expert_short or policy_short),
+        "expert_short": expert_short,
+        "policy_short": policy_short,
+        "pairwise_excluded": expert_short or policy_short,
+    }
+
+
+def cadence_record(raw_fps: float, bwm_sampling_stride: int) -> dict[str, float | int]:
+    raw_fps = float(raw_fps)
+    stride = int(bwm_sampling_stride)
+    if not math.isfinite(raw_fps) or raw_fps <= 0:
+        raise ValueError(f"raw_fps must be finite and positive, got {raw_fps}")
+    if stride <= 0:
+        raise ValueError(f"bwm_sampling_stride must be positive, got {stride}")
+    effective_fps = raw_fps / stride
+    return {
+        "raw_fps": raw_fps,
+        "raw_frame_dt": 1.0 / raw_fps,
+        "bwm_sampling_stride": stride,
+        "effective_bwm_fps": effective_fps,
+        "effective_frame_dt": 1.0 / effective_fps,
+    }
+
+
+def require_matching_cadence(
+    expert: dict[str, Any],
+    policy: dict[str, Any],
+    *,
+    absolute_tolerance: float = 1e-9,
+) -> float:
+    required = {
+        "raw_fps",
+        "raw_frame_dt",
+        "bwm_sampling_stride",
+        "effective_bwm_fps",
+        "effective_frame_dt",
+    }
+    for side, record in (("expert", expert), ("policy", policy)):
+        missing = required - set(record)
+        if missing:
+            raise KeyError(f"{side} cadence record is missing {sorted(missing)}")
+    expert_fps = float(expert["effective_bwm_fps"])
+    policy_fps = float(policy["effective_bwm_fps"])
+    if not math.isclose(expert_fps, policy_fps, rel_tol=0.0, abs_tol=absolute_tolerance):
+        raise ValueError(
+            f"CADENCE_MISMATCH: expert effective FPS={expert_fps}, policy={policy_fps}"
+        )
+    return expert_fps
 
 
 def validate_wan_window_shape(history_frames: int, future_frames: int) -> None:
@@ -163,6 +459,7 @@ def inspect_episode_alignment(dataset_base: Path, row: dict[str, Any]) -> dict[s
         reader = imageio.get_reader(video_path)
         try:
             video_frames = int(reader.count_frames())
+            video_fps = float(reader.get_meta_data().get("fps", 0.0))
         finally:
             reader.close()
     except (AttributeError, ImportError, OSError, RuntimeError, ValueError):
@@ -176,9 +473,12 @@ def inspect_episode_alignment(dataset_base: Path, row: dict[str, Any]) -> dict[s
         if not capture.isOpened():
             raise ValueError(f"Could not open video for frame-count validation: {video_path}")
         video_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        video_fps = float(capture.get(cv2.CAP_PROP_FPS))
         capture.release()
         if video_frames <= 0:
             raise ValueError(f"Invalid video frame count {video_frames}: {video_path}")
+    if not math.isfinite(video_fps) or video_fps <= 0:
+        raise ValueError(f"Invalid video FPS {video_fps}: {video_path}")
     parquet_file = pq.ParquetFile(action_path)
     parquet_rows = int(parquet_file.metadata.num_rows)
     if "observation.state" not in parquet_file.schema_arrow.names:
@@ -209,6 +509,7 @@ def inspect_episode_alignment(dataset_base: Path, row: dict[str, Any]) -> dict[s
         "end_frame": end_frame,
         "length": declared_length,
         "video_frames": video_frames,
+        "video_fps": video_fps,
         "parquet_rows": parquet_rows,
     }
 
@@ -249,6 +550,201 @@ def load_and_validate_reference_stat(path: Path) -> tuple[dict[str, Any], dict[s
         "dimensions": 14,
     }
     return payload, provenance
+
+
+def out_of_reference_range(
+    raw_state_pose: np.ndarray,
+    lower: Sequence[float],
+    upper: Sequence[float],
+) -> dict[str, Any]:
+    values = np.asarray(raw_state_pose, dtype=np.float64)
+    low = np.asarray(lower, dtype=np.float64)
+    high = np.asarray(upper, dtype=np.float64)
+    if values.ndim != 2 or values.shape[1] != 14:
+        raise ValueError(f"Expected raw state_pose shape (T, 14), got {values.shape}")
+    if low.shape != (14,) or high.shape != (14,):
+        raise ValueError(f"Expected 14D reference bounds, got {low.shape}/{high.shape}")
+    below = values < low
+    above = values > high
+    clipped = below | above
+    return {
+        "name": "out-of-reference-range",
+        "below_p01_rate": float(below.mean()),
+        "above_p99_rate": float(above.mean()),
+        "clipping_rate": float(clipped.mean()),
+        "per_dim_below_p01_rate": below.mean(axis=0).tolist(),
+        "per_dim_above_p99_rate": above.mean(axis=0).tolist(),
+        "per_dim_clipping_rate": clipped.mean(axis=0).tolist(),
+    }
+
+
+def metric_value_with_normalization(
+    raw_value: float | None,
+    lower_bound: float,
+    upper_bound: float,
+    *,
+    higher_is_better: bool = True,
+) -> dict[str, Any]:
+    lower = float(lower_bound)
+    upper = float(upper_bound)
+    if not math.isfinite(lower) or not math.isfinite(upper) or upper <= lower:
+        raise ValueError(f"Invalid normalization bounds: {lower}, {upper}")
+    if raw_value is None:
+        return {
+            "raw_value": None,
+            "normalized_value": None,
+            "normalization_bounds": [lower, upper],
+            "clipped_flag": None,
+        }
+    raw = float(raw_value)
+    if not math.isfinite(raw):
+        raise ValueError(f"Non-finite raw metric value: {raw}")
+    unit = (raw - lower) / (upper - lower)
+    if not higher_is_better:
+        unit = 1.0 - unit
+    return {
+        "raw_value": raw,
+        "normalized_value": float(np.clip(unit, 0.0, 1.0)),
+        "normalization_bounds": [lower, upper],
+        "clipped_flag": bool(unit < 0.0 or unit > 1.0),
+    }
+
+
+def summarize_tracker_results(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """Count tracker failures explicitly; no record is silently dropped."""
+
+    records = list(records)
+    by_side = {"expert": [0, 0], "pi05": [0, 0]}
+    failure_reasons: dict[str, int] = {}
+    for record in records:
+        side = str(record.get("side"))
+        if side not in by_side:
+            raise ValueError(f"Unknown tracker side: {side}")
+        if not isinstance(record.get("tracker_success"), bool):
+            raise KeyError("Every tracker record requires boolean tracker_success")
+        by_side[side][1] += 1
+        if record["tracker_success"]:
+            by_side[side][0] += 1
+        else:
+            reason = str(record.get("failure_reason") or "unspecified")
+            failure_reasons[reason] = failure_reasons.get(reason, 0) + 1
+    successes = sum(item[0] for item in by_side.values())
+    return {
+        "trajectory_tracker_success_rate": successes / len(records) if records else None,
+        "expert_tracker_success_rate": (
+            by_side["expert"][0] / by_side["expert"][1] if by_side["expert"][1] else None
+        ),
+        "policy_tracker_success_rate": (
+            by_side["pi05"][0] / by_side["pi05"][1] if by_side["pi05"][1] else None
+        ),
+        "failure_reason_counts": dict(sorted(failure_reasons.items())),
+        "n_records": len(records),
+    }
+
+
+def _record_raw_metric(record: dict[str, Any], metric: str) -> float:
+    metrics = record.get("metrics", {})
+    value = metrics.get(metric)
+    if isinstance(value, dict):
+        value = value.get("raw_value")
+    if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+        raise ValueError(
+            f"Missing finite raw {metric} for sample {record.get('sample_id', '<unknown>')}"
+        )
+    return float(value)
+
+
+def aggregate_paired_metric(
+    records: Sequence[dict[str, Any]],
+    metric: str,
+    *,
+    bootstrap_samples: int = 2000,
+    confidence: float = 0.95,
+    seed: int = 0,
+) -> dict[str, Any]:
+    """Apply repeat -> window -> pair-side -> expert-policy paired aggregation."""
+
+    if metric == "jepa":
+        raise ValueError("JEPA is set-level only and cannot enter pair bootstrap")
+    if metric not in PAIRWISE_METRICS:
+        raise ValueError(f"Unsupported pairwise metric: {metric}")
+    grouped: dict[str, dict[str, dict[str, list[float]]]] = {}
+    for record in records:
+        pair = str(record.get("pair_id") or "")
+        side = str(record.get("side") or "")
+        slot = str(record.get("window_slot") or "")
+        if not pair or side not in {"expert", "pi05"} or slot not in {"early", "middle", "late"}:
+            raise ValueError(f"Invalid paired metric record identity: {record}")
+        grouped.setdefault(pair, {}).setdefault(side, {}).setdefault(slot, []).append(
+            _record_raw_metric(record, metric)
+        )
+
+    per_pair = []
+    for pair, sides in sorted(grouped.items()):
+        if set(sides) != {"expert", "pi05"}:
+            raise ValueError(f"Unmatched sides for pair {pair}: {sorted(sides)}")
+        expert_slots = set(sides["expert"])
+        policy_slots = set(sides["pi05"])
+        if expert_slots != policy_slots:
+            raise ValueError(
+                f"Unmatched window slots for pair {pair}: expert={sorted(expert_slots)}, "
+                f"pi05={sorted(policy_slots)}"
+            )
+        window_side = {
+            side: {slot: float(np.mean(values)) for slot, values in slots.items()}
+            for side, slots in sides.items()
+        }
+        expert_score = float(np.mean(list(window_side["expert"].values())))
+        policy_score = float(np.mean(list(window_side["pi05"].values())))
+        per_pair.append(
+            {
+                "pair_id": pair,
+                "expert_score": expert_score,
+                "policy_score": policy_score,
+                "gap_error": expert_score - policy_score,
+                "window_side_scores": window_side,
+            }
+        )
+    gaps = [row["gap_error"] for row in per_pair]
+    rng = np.random.default_rng(seed)
+    return {
+        "metric": metric,
+        "statistical_unit": "pair_id",
+        "n_pairs": len(per_pair),
+        "per_pair_gap": per_pair,
+        "mean_gap": float(np.mean(gaps)) if gaps else None,
+        "median_gap": float(np.median(gaps)) if gaps else None,
+        "paired_bootstrap_ci": _bootstrap_mean_ci(gaps, rng, bootstrap_samples, confidence),
+    }
+
+
+def balanced_jepa_sets(records: Sequence[dict[str, Any]]) -> dict[str, list[str]]:
+    """Build balanced expert/Pi0.5 sample-id sets without producing pair-level JEPA values."""
+
+    cells: dict[tuple[str, str, int], dict[str, str]] = {}
+    for record in records:
+        key = (
+            str(record.get("pair_id")),
+            str(record.get("window_slot")),
+            int(record.get("repeat_id", 0)),
+        )
+        side = str(record.get("side"))
+        if side not in {"expert", "pi05"}:
+            raise ValueError(f"Unknown JEPA side: {side}")
+        sample_id = str(record.get("sample_id") or "")
+        if not SAMPLE_ID_PATTERN.fullmatch(sample_id):
+            raise ValueError(f"Invalid JEPA sample_id: {sample_id}")
+        if side in cells.setdefault(key, {}):
+            raise ValueError(f"Duplicate JEPA cell {key} side={side}")
+        cells[key][side] = sample_id
+    incomplete = [key for key, sides in cells.items() if set(sides) != {"expert", "pi05"}]
+    if incomplete:
+        raise ValueError(f"JEPA sets are not balanced; incomplete cells: {incomplete}")
+    ordered = [cells[key] for key in sorted(cells)]
+    return {
+        "expert": [cell["expert"] for cell in ordered],
+        "pi05": [cell["pi05"] for cell in ordered],
+    }
 
 
 def _finite_metric_values(records: Sequence[dict[str, Any]], metric: str) -> list[float]:

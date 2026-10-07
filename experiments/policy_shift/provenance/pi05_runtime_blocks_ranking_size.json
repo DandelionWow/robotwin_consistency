@@ -1,0 +1,136 @@
+{
+  "status": "PASS",
+  "policy_config": "/data1/liuwenhao/Projects/robotwin_consistency/experiments/policy_shift/configs/pi05_blocks_ranking_size.json",
+  "policy_config_sha256": "2e1c3d94f298bfa67e414843b7d3686857ca13b6e1e47f70412883d91d8cf52b",
+  "checkpoint": {
+    "kind": "orbax_jax",
+    "path": "/data1/liuwenhao/Projects/robotwin_consistency/third_party/robotwin/policy/pi05/checkpoints/pi05_base_aloha_lora/blocks_ranking_size_demo_clean_pi05_lora_30000_wandb/30000",
+    "file_count": 14,
+    "total_bytes": 6335780960,
+    "files": [
+      {
+        "path": "_CHECKPOINT_METADATA",
+        "bytes": 417,
+        "sha256": "4cb612264e72f9d6b360ba038c39a8e2ad2aca5da652acbadc8842247d701911"
+      },
+      {
+        "path": "assets/blocks_ranking_size-demo_clean_100-100/norm_stats.json",
+        "bytes": 3412,
+        "sha256": "25eea52b556e17f602d1e18e9b691c3216a53a6474c14ef17c8b7901612c2c49"
+      },
+      {
+        "path": "params/_METADATA",
+        "bytes": 30870,
+        "sha256": "59e3a7ada60518686cea34320f2a83685de35aa8943a9bb1818a15e055b92337"
+      },
+      {
+        "path": "params/_sharding",
+        "bytes": 17773,
+        "sha256": "54899ee3f4d45eee96ddada379a19a9da1324792b141fa0449608620571e6b01"
+      },
+      {
+        "path": "params/d/246fe46d4b53c1e7a707b235f6d70dc4",
+        "bytes": 2550,
+        "sha256": "1c6bbb1148bf410f7d88d152001d433531cc0d4357c66e02d1dd8d1607d7305a"
+      },
+      {
+        "path": "params/manifest.ocdbt",
+        "bytes": 118,
+        "sha256": "f7ef2001f5d21bf82aae87596aff7afd1fc1dbd16856acf4ef01c303cf7eabdc"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/1d08fa77828333cf574036e1934266af",
+        "bytes": 553001142,
+        "sha256": "7d79e1896ecd5b4000d8cce1c129edc360b6b4c1889fdcebf398eefc79a08811"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/1eea6233ab2eb8a32aedb2dfa56456a0",
+        "bytes": 945630227,
+        "sha256": "944330c1b242ad0346142b4e1c321a7e50ee0764f8b5ddcaf79c2ef3c1078a1b"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/28d38570e23055c9ea622ec61bea4a62",
+        "bytes": 161531936,
+        "sha256": "88749b1a61d24341cf0cb5102f13f1888a00b253d58676717a16f44c52c98146"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/327fae4184ff812d8a3539f39216abc2",
+        "bytes": 1955125303,
+        "sha256": "9d9dc8f502a2c62dea37e3b4cfc40e943ef9138d77c2d1b736d4a51591ddf91a"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/4b2efaeec751cac73757b2f71d4ccb00",
+        "bytes": 5685,
+        "sha256": "6c33e1568812534d6124b17ad8a5ccaedcc91e9469536f11bd559e0d0b6c3a51"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/ad549fa2bf6409f776990931cdbe0260",
+        "bytes": 213,
+        "sha256": "fff2f8b328c86ab34912c01d5758210df1805bcd73e3709be401d1989b9b18c3"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/bfb2d4f33d91ada2f15cfcc737968ffb",
+        "bytes": 2720430943,
+        "sha256": "37f0f3814d7687e8116861ef70603f393f3981a297682ddf356477ea58abbc07"
+      },
+      {
+        "path": "params/ocdbt.process_0/manifest.ocdbt",
+        "bytes": 371,
+        "sha256": "b454377677b1b139c129c62e11cf35f5fba5293d97642602efd0946f430d0846"
+      }
+    ],
+    "sha256": "17a388a5cabd65fe3d7d6564dd6f828ebc017890e44d7ed61d003fa13d479015"
+  },
+  "checkpoint_source": "JackieMM/RoboTwin-pi05-30000-checkpoints",
+  "checkpoint_source_revision": "4c5a1c2be00d4019b649d72dc81fe1bbf9d999a4",
+  "model_code_commit": "2d3a8eb9804d2e5e239435d32f45da6277503d73",
+  "runtime": {
+    "python": "/data1/liuwenhao/.conda/envs/pi05-blackwell/bin/python",
+    "jax": "0.6.2",
+    "visible_physical_gpu": 0,
+    "jax_devices": [
+      "cuda:0"
+    ],
+    "cuda_root": "/data1/liuwenhao/.conda/envs/cuda128-robotwin",
+    "ptxas_version": "Build cuda_12.8.r12.8/compiler.35583870_0",
+    "python_no_user_site": true
+  },
+  "input": {
+    "observation_hdf5": "/data1/liuwenhao/Datasets/data/blocks_ranking_size_pi05/demo_clean/run_0000/data/episode0.hdf5",
+    "instruction": "rank the blocks by size",
+    "image_shapes": [
+      [
+        480,
+        640,
+        3
+      ],
+      [
+        240,
+        320,
+        3
+      ],
+      [
+        240,
+        320,
+        3
+      ]
+    ],
+    "state_shape": [
+      14
+    ]
+  },
+  "output": {
+    "action_shape": [
+      50,
+      14
+    ],
+    "dtype": "float64",
+    "finite": true,
+    "minimum": -1.0612470303296195,
+    "maximum": 2.0007767045928437
+  },
+  "timing_seconds": {
+    "load": 13.319731361232698,
+    "first_inference": 18.82450313307345
+  }
+}

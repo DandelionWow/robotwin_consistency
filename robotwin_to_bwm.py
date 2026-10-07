@@ -15,6 +15,11 @@ from pathlib import Path
 
 import numpy as np
 
+from experiments.policy_shift.bwm_conversion import (
+    realized_eef16_from_fields,
+    state_pose14_from_realized_eef16,
+)
+
 
 STATE_WIDTH = 26
 DEFAULT_BWM_CONFIG = "configs/infer/infer.yaml"
@@ -256,17 +261,17 @@ def read_robotwin_episode(hdf5_path: Path, start_frame: int) -> tuple[np.ndarray
 
     state = np.empty((joint_state.shape[0], STATE_WIDTH), dtype=np.float32)
     state[:, 0:7] = joint_state[:, 0:7]
-    state[:, 7:10] = left_endpose[:, 0:3]
-    state[:, 10:13] = quaternion_wxyz_to_rpy(left_endpose[:, 3:7])
     state[:, 13:20] = joint_state[:, 7:14]
-    state[:, 20:23] = right_endpose[:, 0:3]
-    state[:, 23:26] = quaternion_wxyz_to_rpy(right_endpose[:, 3:7])
-
-    # Keep the HDF5 endpose gripper values authoritative. They should match
-    # joint_action/vector, but explicitly assigning them also validates their
-    # lengths and mirrors the BWM demo schema.
-    state[:, 6] = left_gripper[:, 0]
-    state[:, 19] = right_gripper[:, 0]
+    realized_eef = realized_eef16_from_fields(
+        left_endpose,
+        left_gripper,
+        right_endpose,
+        right_gripper,
+    )
+    state_pose = state_pose14_from_realized_eef16(realized_eef)
+    # This assignment is the inverse of BWM's fixed EEF_INDICES projection.
+    # Both legacy HDF5 and fresh matched data call the same 16D -> 14D function.
+    state[:, EEF_INDICES] = state_pose
     action = state_to_action(state)
     return state, action
 

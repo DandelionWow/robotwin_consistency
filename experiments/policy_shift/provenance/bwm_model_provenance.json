@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "bwm_commit": "8a85a222fd65a48c778027d4aa44ffc8fa04206e",
+  "model_identity": "Wan-AI/Wan2.2-TI2V-5B",
+  "model_root": "third_party/boundless-world-model/models/Wan2.2-TI2V-5B",
+  "checkpoint": {
+    "path": "third_party/boundless-world-model/ckpt/BLM/step-12000.safetensors",
+    "bytes": 10051484872,
+    "sha256": "75f863b9474d6e74934db45bb85728fef0adece3d123c667b78349bdade9c7f3"
+  },
+  "base_model_files": [
+    {
+      "path": "diffusion_pytorch_model-00001-of-00003.safetensors",
+      "bytes": 9825014472,
+      "sha256": "720b06c4ade5e87c1246bba8ac95b664c638749cd9b102cf84d823bb44c026a1"
+    },
+    {
+      "path": "diffusion_pytorch_model-00002-of-00003.safetensors",
+      "bytes": 9995661736,
+      "sha256": "09ec5ef720d8396f6cfa51fbdcbdb2327e37722afd6e89fd38f1e7e5e782c283"
+    },
+    {
+      "path": "diffusion_pytorch_model-00003-of-00003.safetensors",
+      "bytes": 178558176,
+      "sha256": "6306f7894c345de9093ad588771c2abfaeb668a81f7a6d9a918bd26ba3568e49"
+    },
+    {
+      "path": "Wan2.2_VAE.pth",
+      "bytes": 2818839170,
+      "sha256": "20eb789667fa5e60e7516bf509512f6cb61f01b0aa0695eadaea930c13892b36"
+    },
+    {
+      "path": "diffusion_pytorch_model.safetensors.index.json",
+      "bytes": 72865,
+      "sha256": "bfa2337f1163e195d24151a72298daf34a620543898109be47e414c8daa5b3fe"
+    },
+    {
+      "path": "configuration.json",
+      "bytes": 309,
+      "sha256": "b79968dbf190e7f4802d48dbb7e8c3a4d1064f5faf90a44435d86239c3e6198a"
+    },
+    {
+      "path": "config.json",
+      "bytes": 251,
+      "sha256": "d1fea36899d00c2501b836c13ad65af56e2f9529ba622e50886d3f5c3e6c02bc"
+    }
+  ],
+  "inference_contract": {
+    "action_mode": "adaln",
+    "action_type": "eef_abs",
+    "action_dim": 14,
+    "num_frames": 81,
+    "num_history_frames": 9,
+    "num_future_frames": 72,
+    "num_inference_steps": 50,
+    "cfg_scale": 1.0,
+    "mixed_precision": "bf16",
+    "text_mode": "none",
+    "image_mode": "none",
+    "vae_mode": "raw"
+  }
+}

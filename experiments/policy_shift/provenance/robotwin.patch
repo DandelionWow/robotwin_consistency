@@ -1,0 +1,117 @@
+diff --git a/README.md b/README.md
+index 276f9e1..cdb4ef7 100644
+--- a/README.md
++++ b/README.md
+@@ -91,19 +91,20 @@ bash collect_data.sh ${task_name} ${task_config} ${gpu_id}
+ 
+ ### Blackwell / OIDN Compatibility
+ 
+-RoboTwin uses SAPIEN ray tracing denoising during rendering. On some Blackwell GPU environments, the SAPIEN bundled OIDN CUDA device can report errors such as `unsupported device type: CUDA`. The denoiser backend can be selected with `--denoiser` or the `ROBOTWIN_DENOISER` environment variable. Supported values are `oidn`, `optix`, and `none`; the default remains `oidn`.
++RoboTwin uses SAPIEN ray tracing denoising during rendering. On some Blackwell GPU environments, the SAPIEN bundled OIDN CUDA device can report errors such as `unsupported device type: CUDA`. The denoiser backend can be selected with `--denoiser` or the `ROBOTWIN_DENOISER` environment variable. Supported values are `oidn`, `optix`, and `none`; the default is `optix`.
+ 
+-Default OIDN:
++Default OptiX:
+ 
+ ```
+-bash collect_data.sh beat_block_hammer demo_clean 1 --denoiser oidn
++bash collect_data.sh beat_block_hammer demo_clean 1
++bash collect_data.sh beat_block_hammer demo_clean 1 --denoiser optix
+ ```
+ 
+-Use OptiX instead of OIDN:
++Use OIDN instead of OptiX:
+ 
+ ```
+-bash collect_data.sh beat_block_hammer demo_clean 1 --denoiser optix
+-ROBOTWIN_DENOISER=optix bash collect_data.sh beat_block_hammer demo_clean 1
++bash collect_data.sh beat_block_hammer demo_clean 1 --denoiser oidn
++ROBOTWIN_DENOISER=oidn bash collect_data.sh beat_block_hammer demo_clean 1
+ ```
+ 
+ Disable denoising:
+diff --git a/envs/adjust_bottle.py b/envs/adjust_bottle.py
+index 180602a..cf07ca7 100644
+--- a/envs/adjust_bottle.py
++++ b/envs/adjust_bottle.py
+@@ -2,11 +2,15 @@ from ._base_task import Base_Task
+ from .utils import *
+ import sapien
+ import math
++import numpy as np
+ 
+ 
+ class adjust_bottle(Base_Task):
+ 
+     def setup_demo(self, **kwags):
++        # Optional hook used by robotwin_consistency's paired-data collector.
++        # None preserves the upstream task's initial-condition distribution.
++        self.initial_bottle_xy_offset = kwags.get("initial_bottle_xy_offset")
+         super()._init_task_env_(**kwags)
+ 
+     def load_actors(self):
+@@ -28,7 +32,47 @@ class adjust_bottle(Base_Task):
+             rotate_lim=(0, 0, 0.4),
+             model_id=self.model_id,
+         )
++
++        spawn_pose = self.bottle.get_pose()
++        self.bottle_spawn_pose = sapien.Pose(
++            np.asarray(spawn_pose.p, dtype=np.float64).copy(),
++            np.asarray(spawn_pose.q, dtype=np.float64).copy(),
++        )
++        self.bottle_initial_xy_offset_applied = [0.0, 0.0]
++
++        if self.initial_bottle_xy_offset is not None:
++            offset = np.asarray(self.initial_bottle_xy_offset, dtype=np.float64)
++            if offset.shape != (2,) or not np.all(np.isfinite(offset)):
++                raise ValueError("initial_bottle_xy_offset must contain two finite values")
++
++            position = np.asarray(spawn_pose.p, dtype=np.float64).copy()
++            position[:2] += offset
++            self.bottle.actor.set_pose(sapien.Pose(position, spawn_pose.q))
++
++            dynamic_components = [
++                component
++                for component in self.bottle.actor.get_components()
++                if hasattr(component, "set_linear_velocity")
++                and hasattr(component, "set_angular_velocity")
++            ]
++            if not dynamic_components:
++                raise RuntimeError("adjust_bottle expected a dynamic bottle actor")
++            for component in dynamic_components:
++                component.set_linear_velocity(np.zeros(3, dtype=np.float32))
++                component.set_angular_velocity(np.zeros(3, dtype=np.float32))
++            self.bottle_initial_xy_offset_applied = offset.tolist()
++
++        injected_pose = self.bottle.get_pose()
++        self.bottle_injected_pose = sapien.Pose(
++            np.asarray(injected_pose.p, dtype=np.float64).copy(),
++            np.asarray(injected_pose.q, dtype=np.float64).copy(),
++        )
+         self.delay(4)
++        settled_pose = self.bottle.get_pose()
++        self.bottle_settled_pose = sapien.Pose(
++            np.asarray(settled_pose.p, dtype=np.float64).copy(),
++            np.asarray(settled_pose.q, dtype=np.float64).copy(),
++        )
+         self.add_prohibit_area(self.bottle, padding=0.15)
+         self.left_target_pose = [-0.25, -0.12, 0.95, 0, 1, 0, 0]
+         self.right_target_pose = [0.25, -0.12, 0.95, 0, 1, 0, 0]
+diff --git a/policy/pi05/src/openpi/policies/policy_config.py b/policy/pi05/src/openpi/policies/policy_config.py
+index b9e52e8..00082d5 100644
+--- a/policy/pi05/src/openpi/policies/policy_config.py
++++ b/policy/pi05/src/openpi/policies/policy_config.py
+@@ -1,3 +1,4 @@
++import dataclasses
+ import logging
+ import os
+ import pathlib
+@@ -59,7 +60,7 @@ def create_trained_policy(
+     data_config = train_config.data.create(train_config.assets_dirs, train_config.model)
+     if norm_stats is None:
+         if robotwin_repo_id is not None:
+-            data_config.asset_id = robotwin_repo_id
++            data_config = dataclasses.replace(data_config, asset_id=robotwin_repo_id)
+         # We are loading the norm stats from the checkpoint instead of the config assets dir to make sure
+         # that the policy is using the same normalization stats as the original training process.
+         if data_config.asset_id is None:

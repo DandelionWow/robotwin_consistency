@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "verification_status": "PASS",
+  "verified_at_utc": "2026-10-07",
+  "source": {
+    "repository": "JackieMM/RoboTwin-pi05-30000-checkpoints",
+    "revision": "4c5a1c2be00d4019b649d72dc81fe1bbf9d999a4",
+    "file_scope": [
+      "_CHECKPOINT_METADATA",
+      "params/**",
+      "assets/**"
+    ],
+    "excluded_scope": "train_state/**",
+    "excluded_scope_reason": "Training-resume state is not loaded by RoboTwin Pi0.5 inference and is not part of the canonical inference-checkpoint identity."
+  },
+  "checkpoints": [
+    {
+      "task": "blocks_ranking_size",
+      "source_path": "checkpoints/pi05/pi05_base_aloha_lora/blocks_ranking_size_demo_clean_pi05_lora_30000_wandb/30000",
+      "local_config": "experiments/policy_shift/configs/pi05_blocks_ranking_size.json",
+      "asset_id": "blocks_ranking_size-demo_clean_100-100",
+      "inference_file_count": 14,
+      "inference_total_bytes": 6335780960,
+      "canonical_manifest_sha256": "17a388a5cabd65fe3d7d6564dd6f828ebc017890e44d7ed61d003fa13d479015",
+      "excluded_train_state_file_count": 13,
+      "remote_path_size_sha256_match": true
+    },
+    {
+      "task": "hanging_mug",
+      "source_path": "checkpoints/pi05/pi05_base_aloha_lora/hanging_mug_demo_clean_pi05_lora_30000_wandb/30000",
+      "local_config": "experiments/policy_shift/configs/pi05_hanging_mug.json",
+      "asset_id": "hanging_mug-demo_clean_100-100",
+      "inference_file_count": 14,
+      "inference_total_bytes": 6335777835,
+      "canonical_manifest_sha256": "357547e06169c782f2e974aba4d48d2f38af91526fa1b8423017ce483b090951",
+      "excluded_train_state_file_count": 11,
+      "remote_path_size_sha256_match": true
+    },
+    {
+      "task": "stamp_seal",
+      "source_path": "checkpoints/pi05/pi05_base_aloha_lora/stamp_seal_demo_clean_pi05_lora_30000_wandb/30000",
+      "local_config": "experiments/policy_shift/configs/pi05_stamp_seal.json",
+      "asset_id": "stamp_seal-demo_clean_100-100",
+      "inference_file_count": 15,
+      "inference_total_bytes": 6335782944,
+      "canonical_manifest_sha256": "1aafcbd5d54fc6c3e83ae21b6a0b4a62b295d675eb89d60696260c95b2cb9349",
+      "excluded_train_state_file_count": 11,
+      "remote_path_size_sha256_match": true
+    }
+  ]
+}

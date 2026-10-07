@@ -1,0 +1,141 @@
+{
+  "status": "PASS",
+  "policy_config": "/data1/liuwenhao/Projects/robotwin_consistency/experiments/policy_shift/configs/pi05_stamp_seal.json",
+  "policy_config_sha256": "4ce73e600b3d06db04edf5fab2ae1394300e0d2980ca2734d0d459ed50a3f64e",
+  "checkpoint": {
+    "kind": "orbax_jax",
+    "path": "/data1/liuwenhao/Projects/robotwin_consistency/third_party/robotwin/policy/pi05/checkpoints/pi05_base_aloha_lora/stamp_seal_demo_clean_pi05_lora_30000_wandb/30000",
+    "file_count": 15,
+    "total_bytes": 6335782944,
+    "files": [
+      {
+        "path": "_CHECKPOINT_METADATA",
+        "bytes": 417,
+        "sha256": "0e52df021289fd8051900337caadb6dbd3381d6c74507cb35f29d11f32dd2878"
+      },
+      {
+        "path": "assets/stamp_seal-demo_clean_100-100/norm_stats.json",
+        "bytes": 3325,
+        "sha256": "2732e7f95092941d252bf52c5e5c67ed40c67a24b87e4d3749fc75b3f209ca2d"
+      },
+      {
+        "path": "params/_METADATA",
+        "bytes": 30870,
+        "sha256": "59e3a7ada60518686cea34320f2a83685de35aa8943a9bb1818a15e055b92337"
+      },
+      {
+        "path": "params/_sharding",
+        "bytes": 17773,
+        "sha256": "54899ee3f4d45eee96ddada379a19a9da1324792b141fa0449608620571e6b01"
+      },
+      {
+        "path": "params/d/5b822133a4f9fa67123c7feb107b9e29",
+        "bytes": 2530,
+        "sha256": "9f0c80cea2807d9f89ec3cfcdf88956e3cd6785a857d1d4e40467ba15ce2371e"
+      },
+      {
+        "path": "params/manifest.ocdbt",
+        "bytes": 118,
+        "sha256": "71cb7acb83c5d89d1fa964dffcf29826953c7cd335d488019fd2c1ae9c3a8bc8"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/308d10f385becae617bcb61aec658887",
+        "bytes": 1096355489,
+        "sha256": "45315a5c9158df87757e7443ad037d7e861dee97ea6c22d36078fe35c230d9c0"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/4427d91cf278e9c2d6ad19cc2c2a299f",
+        "bytes": 1362694765,
+        "sha256": "54f5a611950d7952aad36330d8e5cd399e5422e7490ff5ee3ad1328c04d149ad"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/a859f34fd8cfc53069f24547f72da28e",
+        "bytes": 213,
+        "sha256": "fff2f8b328c86ab34912c01d5758210df1805bcd73e3709be401d1989b9b18c3"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/b2c848a82b474ef0bd4dfe1be0bab674",
+        "bytes": 210608773,
+        "sha256": "6a9224f93155d19853bf37ff8ba50a7104ca2a6940be8604188b6aefd481fa53"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/cce81585cc584a5c953950e331c19329",
+        "bytes": 2720430943,
+        "sha256": "37f0f3814d7687e8116861ef70603f393f3981a297682ddf356477ea58abbc07"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/e33e2818f6e8aeddf2f1a5fb80c3f165",
+        "bytes": 945630210,
+        "sha256": "ade88e63b9fcc97c96631f549200f25d8694e428002dcdcdb23a9f2bdbcb7782"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/eea9cf141089b9807784e4d36d2fbd0b",
+        "bytes": 1415,
+        "sha256": "74466f665e576b530140d2382a6aaa3db9942e9816478dcd099fc322ac77eca3"
+      },
+      {
+        "path": "params/ocdbt.process_0/d/f2e3512fe66b2129035408660a1252db",
+        "bytes": 5690,
+        "sha256": "b98836e66d711a839eb0b1de5f0e29916060238004b5fca4c861e9f862fa2902"
+      },
+      {
+        "path": "params/ocdbt.process_0/manifest.ocdbt",
+        "bytes": 413,
+        "sha256": "c1881892aed12bf02e9165765154f0d0947a7bb89240543bce442917f1125cfd"
+      }
+    ],
+    "sha256": "1aafcbd5d54fc6c3e83ae21b6a0b4a62b295d675eb89d60696260c95b2cb9349"
+  },
+  "checkpoint_source": "JackieMM/RoboTwin-pi05-30000-checkpoints",
+  "checkpoint_source_revision": "4c5a1c2be00d4019b649d72dc81fe1bbf9d999a4",
+  "model_code_commit": "2d3a8eb9804d2e5e239435d32f45da6277503d73",
+  "runtime": {
+    "python": "/data1/liuwenhao/.conda/envs/pi05-blackwell/bin/python",
+    "jax": "0.6.2",
+    "visible_physical_gpu": 0,
+    "jax_devices": [
+      "cuda:0"
+    ],
+    "cuda_root": "/data1/liuwenhao/.conda/envs/cuda128-robotwin",
+    "ptxas_version": "Build cuda_12.8.r12.8/compiler.35583870_0",
+    "python_no_user_site": true
+  },
+  "input": {
+    "observation_hdf5": "/data1/liuwenhao/Datasets/data/stamp_seal_pi05/demo_clean/run_0000/data/episode2.hdf5",
+    "instruction": "stamp the seal",
+    "image_shapes": [
+      [
+        480,
+        640,
+        3
+      ],
+      [
+        240,
+        320,
+        3
+      ],
+      [
+        240,
+        320,
+        3
+      ]
+    ],
+    "state_shape": [
+      14
+    ]
+  },
+  "output": {
+    "action_shape": [
+      50,
+      14
+    ],
+    "dtype": "float64",
+    "finite": true,
+    "minimum": -1.165380711638011,
+    "maximum": 2.1229645458387587
+  },
+  "timing_seconds": {
+    "load": 14.010705832391977,
+    "first_inference": 17.592500887811184
+  }
+}

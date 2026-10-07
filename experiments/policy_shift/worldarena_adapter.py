@@ -13,7 +13,7 @@ class WorldArenaBasicMetrics:
     """Call WorldArena's own PSNR and SSIM functions on one aligned window."""
 
     def __init__(self, worldarena_root: Path):
-        metric_path = worldarena_root / "WorldArena" / "basic_metrics.py"
+        metric_path = worldarena_root / "video_quality" / "WorldArena" / "basic_metrics.py"
         if not metric_path.is_file():
             raise FileNotFoundError(f"WorldArena basic metric implementation not found: {metric_path}")
         spec = importlib.util.spec_from_file_location("_worldarena_basic_metrics", metric_path)
