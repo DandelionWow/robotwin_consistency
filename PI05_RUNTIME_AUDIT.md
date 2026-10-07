@@ -56,6 +56,7 @@ nvidia-curobo                 0.7.8 (editable local checkout)
 warp-lang                     1.12.0
 chardet                       5.2.0
 pip                           24.2
+setuptools                    69.5.1
 numpy                         1.26.4
 ```
 
@@ -81,6 +82,12 @@ The final dependency check has exactly two intentional incompatibilities:
 
 There are no duplicate package distributions. These two overrides are not
 silently represented as an exact-lock installation.
+
+RoboTwin's `script/_install.sh` pins `setuptools==69.5.1`. The final
+environment follows that pin because SAPIEN 3.0.0b1 imports the legacy
+`pkg_resources` module, which is absent from the initially resolved
+Setuptools 84 build. A post-pin import of SAPIEN, Torch, and all five CuRobo
+extensions passed.
 
 ## GPU and CuRobo verification
 
