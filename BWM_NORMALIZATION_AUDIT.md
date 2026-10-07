@@ -9,6 +9,11 @@ a specific `state_pose` statistics file. In particular,
 `demo/stat.json` is compatible with inference but is **not proven** to be the
 training stat.
 
+```text
+demo/stat.json provenance: UNKNOWN
+WM0 training-stat status: UNCONFIRMED
+```
+
 ## Checkpoint identity
 
 ```text
