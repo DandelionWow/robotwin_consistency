@@ -234,7 +234,8 @@ Before environment creation, verify:
 - `train_config_name`, `model_name`, `checkpoint_id`, and `pi0_step` are fixed;
 - the referenced OpenPI training config exists in the checked-in model code;
 - observation preprocessing and action convention are recorded;
-- a model-load smoke test completes on GPU 0–3 only.
+- a model-load smoke test completes on GPU 0–3, or on the explicitly
+  authorized remote-server exception GPU 5; the physical index is recorded.
 - `nvidia-curobo` is an editable install from the explicitly supplied clean
   CuRobo checkout; its git commit, distribution version, Torch build, CUDA
   build, device name, compute capability, and compiled architecture list are

@@ -13,13 +13,22 @@ Experiment 1 smoke dataset:
 = 12 trajectories
 ```
 
-The fixed pairs are:
+The initial candidate pairs were:
 
 | Task | Seeds |
 |---|---|
 | `blocks_ranking_size` | `200001`, `200002` |
 | `hanging_mug` | `200001`, `200002` |
 | `stamp_seal` | `200003`, `200004` |
+
+Remote Expert-only screening established that `blocks_ranking_size/200001`,
+`hanging_mug/200002`, and `stamp_seal/200003` fail the unchanged Expert gate in
+the fixed remote runtime. They are not formal pairs. Keep the three passing
+seeds (`blocks_ranking_size/200002`, `hanging_mug/200001`, and
+`stamp_seal/200004`) and determine one replacement per task before formal
+collection. Screen only Expert, in ascending seed order, and take the first
+seed for which both `plan_success` and `check_success()` are true. Do not run
+Pi0.5 while selecting replacements. Record every attempted seed and result.
 
 Do not collect Expert and Pi0.5 separately. The checked-in collector creates
 both sides sequentially in one process, resets the identical task seed, and
@@ -58,11 +67,14 @@ repo: JackieMM/RoboTwin-pi05-30000-checkpoints
 revision: 4c5a1c2be00d4019b649d72dc81fe1bbf9d999a4
 ```
 
-The three checkpoint directories, including every inference parameter file and
-`assets/<asset_id>/norm_stats.json`, must appear below:
+The Hugging Face snapshot stores the files below
+`checkpoints/pi05/pi05_base_aloha_lora/`. RoboTwin's runtime path intentionally
+omits that repository-layout-only `pi05` component. Copy the directories or
+create stable directory links so that every inference parameter file and
+`assets/<asset_id>/norm_stats.json` is visible at:
 
 ```text
-third_party/robotwin/policy/pi05/checkpoints/pi05/
+third_party/robotwin/policy/pi05/checkpoints/
   pi05_base_aloha_lora/
     blocks_ranking_size_demo_clean_pi05_lora_30000_wandb/30000/
     hanging_mug_demo_clean_pi05_lora_30000_wandb/30000/
@@ -102,8 +114,9 @@ run together:
 - `h5py`, OpenCV, PyYAML, and `ffmpeg`.
 
 The current collector requires a CUDA toolkit with `bin/ptxas` version 12.8 or
-newer and only permits physical GPU indices 0 through 3. Do not use another GPU
-without changing the experiment contract and reporting it first.
+newer. Physical GPU indices 0 through 3 remain the default contract. The user
+explicitly authorized physical GPU 5 as an exception on the remote collection
+server; the manifest records the actual physical index.
 
 Do not reinstall a working system driver or rebuild the remote environment
 blindly. If its GPU architecture differs from the source server, report the
@@ -118,7 +131,7 @@ From the root of the clean `robotwin_consistency` checkout, identify:
 COLLECTION_PYTHON  absolute Python executable for the joint runtime
 CUDA_ROOT          CUDA toolkit root containing bin/ptxas
 CUROBO_SOURCE      clean CuRobo v0.7.8 Git checkout used by the editable install
-GPU_ID             one free physical GPU among 0, 1, 2, or 3
+GPU_ID             one free physical GPU among 0--3, or remote exception 5
 ```
 
 First run only the six preflights:
@@ -127,17 +140,22 @@ First run only the six preflights:
 COLLECTION_PYTHON=/absolute/path/to/python \
 CUDA_ROOT=/absolute/path/to/cuda-12.8 \
 CUROBO_SOURCE=/absolute/path/to/clean/curobo-v0.7.8 \
-GPU_ID=0 \
+GPU_ID=5 \
 bash experiments/policy_shift/run_remote_matched_collection.sh preflight
 ```
 
-Do not proceed unless every invocation prints `PREFLIGHT_OK`. Then run:
+Do not proceed unless every invocation prints `PREFLIGHT_OK`. The original six
+preflights have passed, but formal collection is now paused until the three
+failed Expert seeds are replaced and the final seed plan is committed. The
+checked-in runner deliberately refuses `collect` while this gate is open.
+
+After the final seed plan is pushed, update to that commit and run:
 
 ```bash
 COLLECTION_PYTHON=/absolute/path/to/python \
 CUDA_ROOT=/absolute/path/to/cuda-12.8 \
 CUROBO_SOURCE=/absolute/path/to/clean/curobo-v0.7.8 \
-GPU_ID=0 \
+GPU_ID=5 \
 bash experiments/policy_shift/run_remote_matched_collection.sh collect
 ```
 

@@ -15,7 +15,7 @@ Usage:
   bash experiments/policy_shift/run_remote_matched_collection.sh collect
 
 Optional environment variables:
-  GPU_ID=0                 Physical GPU index; only 0, 1, 2, or 3 is accepted.
+  GPU_ID=0                 Physical GPU index; GPU 5 is the authorized remote exception.
   DENOISER=optix           One of oidn, optix, or none.
   XLA_MEMORY_FRACTION=0.4
   OUTPUT_DIR=<repo>/outputs/policy_shift/matched_raw
@@ -43,8 +43,8 @@ denoiser=${DENOISER:-optix}
 xla_memory_fraction=${XLA_MEMORY_FRACTION:-0.4}
 
 case "$gpu_id" in
-  0|1|2|3) ;;
-  *) echo "GPU_ID must be one of physical GPUs 0, 1, 2, or 3" >&2; exit 2 ;;
+  0|1|2|3|5) ;;
+  *) echo "GPU_ID must be 0, 1, 2, 3, or the authorized remote exception 5" >&2; exit 2 ;;
 esac
 case "$denoiser" in
   oidn|optix|none) ;;
@@ -128,6 +128,10 @@ if [[ "$mode" == "preflight" ]]; then
   echo "All six preflights passed; no trajectory was collected."
   exit 0
 fi
+
+echo "Formal collection is paused: three candidate seeds failed the Expert gate." >&2
+echo "Complete the documented Expert-only sequential seed screen and commit the final seed plan first." >&2
+exit 1
 
 for index in "${!tasks[@]}"; do
   task=${tasks[$index]}

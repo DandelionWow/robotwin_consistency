@@ -216,8 +216,11 @@ def _installed_editable_source(distribution_name: str) -> tuple[str, Path]:
 
 
 def run_preflight(args: argparse.Namespace) -> Preflight:
-    if args.gpu_id not in {0, 1, 2, 3}:
-        raise ValueError("--gpu-id must be one of physical GPUs 0,1,2,3")
+    if args.gpu_id not in {0, 1, 2, 3, 5}:
+        raise ValueError(
+            "--gpu-id must be one of physical GPUs 0,1,2,3, or the "
+            "explicitly authorized remote-server exception GPU 5"
+        )
     if site.ENABLE_USER_SITE or os.environ.get("PYTHONNOUSERSITE") != "1":
         raise RuntimeError(
             "Start the collector with PYTHONNOUSERSITE=1 to prevent user site-package contamination"
@@ -674,7 +677,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=PROJECT_ROOT / "outputs/policy_shift/matched_raw",
     )
-    parser.add_argument("--gpu-id", type=int, choices=(0, 1, 2, 3), default=0)
+    parser.add_argument("--gpu-id", type=int, choices=(0, 1, 2, 3, 5), default=0)
     parser.add_argument("--cuda-root", type=Path, required=True)
     parser.add_argument(
         "--curobo-source",
