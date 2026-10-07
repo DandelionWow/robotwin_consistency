@@ -31,6 +31,7 @@ from protocol import (
     require_matching_initial_state,
     sha256_file,
     state_fingerprint,
+    validate_formal_seed_plan,
     validate_reproducible_code_provenance,
 )
 
@@ -186,6 +187,8 @@ class Preflight:
     code_provenance: dict[str, Any]
     task_config: Path
     task_config_sha256: str
+    seed_plan: Path
+    seed_plan_sha256: str
     curobo_source: Path
     curobo_source_commit: str
     runtime: dict[str, Any]
@@ -257,9 +260,19 @@ def run_preflight(args: argparse.Namespace) -> Preflight:
         )
     task_config = args.task_config.resolve()
     policy_config = args.policy_config.resolve()
-    for path, label in ((task_config, "task config"), (policy_config, "policy config")):
+    seed_plan = args.seed_plan.resolve()
+    for path, label in (
+        (task_config, "task config"),
+        (policy_config, "policy config"),
+        (seed_plan, "formal seed plan"),
+    ):
         if not path.is_file():
             raise FileNotFoundError(f"Missing {label}: {path}")
+    planned = validate_formal_seed_plan(_load_mapping(seed_plan))
+    if args.task not in planned or args.env_seed not in planned[args.task]:
+        raise ValueError(
+            f"Pair {pair_id(args.task, args.env_seed)} is not authorized by {seed_plan}"
+        )
     if not PROVENANCE_PATH.is_file():
         raise FileNotFoundError(
             f"Missing {PROVENANCE_PATH}; run capture_code_provenance.py before collection"
@@ -310,6 +323,8 @@ def run_preflight(args: argparse.Namespace) -> Preflight:
         code_provenance=code_provenance,
         task_config=task_config,
         task_config_sha256=sha256_file(task_config),
+        seed_plan=seed_plan,
+        seed_plan_sha256=sha256_file(seed_plan),
         curobo_source=curobo_source,
         curobo_source_commit=curobo_source_commit,
         runtime={
@@ -625,6 +640,8 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
             "robotwin_patch_sha256": preflight.code_provenance.get("robotwin_patch_sha256"),
             "task_config_path": str(preflight.task_config),
             "task_config_sha256": preflight.task_config_sha256,
+            "seed_plan_path": str(preflight.seed_plan),
+            "seed_plan_sha256": preflight.seed_plan_sha256,
             "camera_config_path": str((ROBOTWIN_ROOT / "task_config/_camera_config.yml").resolve()),
             "camera_config_sha256": sha256_file(ROBOTWIN_ROOT / "task_config/_camera_config.yml"),
             "embodiment_config_paths": [str(path.resolve()) for path in embodiment_paths],
@@ -672,6 +689,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--env-seed", type=int, required=True)
     parser.add_argument("--task-config", type=Path, required=True)
     parser.add_argument("--policy-config", type=Path, required=True)
+    parser.add_argument("--seed-plan", type=Path, required=True)
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -711,6 +729,8 @@ def main() -> int:
         "env_seed": args.env_seed,
         "checkpoint": str(preflight.checkpoint_dir),
         "checkpoint_sha256": preflight.checkpoint_sha256,
+        "seed_plan": str(preflight.seed_plan),
+        "seed_plan_sha256": preflight.seed_plan_sha256,
         "root_commit": preflight.code_provenance["root_commit"],
         "collector_sha256": sha256_file(Path(__file__).resolve()),
         "protocol_sha256": sha256_file(Path(__file__).parent / "protocol.py"),

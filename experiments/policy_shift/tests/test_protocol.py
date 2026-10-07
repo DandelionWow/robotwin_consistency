@@ -36,6 +36,7 @@ from protocol import (
     select_protocol_windows,
     state_fingerprint,
     summarize_tracker_results,
+    validate_formal_seed_plan,
     validate_reproducible_code_provenance,
     verified_failure_label,
     worldarena_sample_id,
@@ -186,6 +187,31 @@ class ProtocolTest(unittest.TestCase):
         manifest = {"env_seed": 123, "generation_seed": generation_seed(identifier, "middle", 0)}
         self.assertEqual(manifest["env_seed"], 123)
         self.assertNotEqual(manifest["generation_seed"], manifest["env_seed"])
+
+    def test_formal_seed_plan_is_exactly_three_by_two(self):
+        plan = {
+            "schema_version": 1,
+            "status": "FORMAL",
+            "tasks": [
+                {"task": "a", "seeds": [1, 2]},
+                {"task": "b", "seeds": [3, 4]},
+                {"task": "c", "seeds": [5, 6]},
+            ],
+        }
+        self.assertEqual(validate_formal_seed_plan(plan)["b"], (3, 4))
+
+    def test_seed_plan_rejects_duplicate_seed_within_task(self):
+        plan = {
+            "schema_version": 1,
+            "status": "FORMAL",
+            "tasks": [
+                {"task": "a", "seeds": [1, 1]},
+                {"task": "b", "seeds": [3, 4]},
+                {"task": "c", "seeds": [5, 6]},
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "duplicate seeds"):
+            validate_formal_seed_plan(plan)
 
     def test_generation_seed_is_stable_sha256_value(self):
         value = generation_seed("task__seed123", "middle", 0)

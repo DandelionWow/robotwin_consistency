@@ -205,6 +205,51 @@ def pair_id(task: str, env_seed: int) -> str:
     return f"{task}__seed{int(env_seed)}"
 
 
+def validate_formal_seed_plan(
+    plan: dict[str, Any],
+    *,
+    expected_tasks: int = 3,
+    seeds_per_task: int = 2,
+) -> dict[str, tuple[int, ...]]:
+    """Validate and normalize the committed formal matched-collection plan."""
+
+    if not isinstance(plan, dict):
+        raise TypeError("Seed plan must be a mapping")
+    if plan.get("schema_version") != 1:
+        raise ValueError("Seed plan schema_version must be 1")
+    if plan.get("status") != "FORMAL":
+        raise ValueError("Seed plan status must be FORMAL")
+    entries = plan.get("tasks")
+    if not isinstance(entries, list) or len(entries) != int(expected_tasks):
+        raise ValueError(f"Seed plan must contain exactly {expected_tasks} task entries")
+
+    normalized: dict[str, tuple[int, ...]] = {}
+    identifiers: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise TypeError("Every seed-plan task entry must be a mapping")
+        task = str(entry.get("task", "")).strip()
+        seeds = entry.get("seeds")
+        if task in normalized:
+            raise ValueError(f"Duplicate task in seed plan: {task}")
+        if not isinstance(seeds, list) or len(seeds) != int(seeds_per_task):
+            raise ValueError(
+                f"Seed plan task {task!r} must contain exactly {seeds_per_task} seeds"
+            )
+        if any(isinstance(seed, bool) or not isinstance(seed, int) for seed in seeds):
+            raise TypeError(f"Seed plan task {task!r} contains a non-integer seed")
+        values = tuple(int(seed) for seed in seeds)
+        if len(set(values)) != len(values):
+            raise ValueError(f"Seed plan task {task!r} contains duplicate seeds")
+        for seed in values:
+            identifier = pair_id(task, seed)
+            if identifier in identifiers:
+                raise ValueError(f"Duplicate pair in seed plan: {identifier}")
+            identifiers.add(identifier)
+        normalized[task] = values
+    return normalized
+
+
 def generation_seed(pair_identifier: str, window_slot: str, repeat_id: int) -> int:
     if window_slot not in {"early", "middle", "late"}:
         raise ValueError(f"Unknown window slot: {window_slot}")

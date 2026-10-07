@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "status": "FORMAL",
+  "selection_method": "Retain Expert-success candidates; for each failed candidate, scan later seeds in ascending order using Expert only and accept the first seed that passes plan_success and check_success in two independent Python processes.",
+  "selection_provenance": "experiments/policy_shift/provenance/remote_expert_seed_screen_gpu5.md",
+  "policy_used_during_selection": false,
+  "tasks": [
+    {
+      "task": "blocks_ranking_size",
+      "seeds": [200002, 200003],
+      "retained_seed": 200002,
+      "replacement_seed": 200003,
+      "rejected_candidates": [200001]
+    },
+    {
+      "task": "hanging_mug",
+      "seeds": [200001, 200003],
+      "retained_seed": 200001,
+      "replacement_seed": 200003,
+      "rejected_candidates": [200002]
+    },
+    {
+      "task": "stamp_seal",
+      "seeds": [200004, 200005],
+      "retained_seed": 200004,
+      "replacement_seed": 200005,
+      "rejected_candidates": [200003]
+    }
+  ]
+}

@@ -13,22 +13,28 @@ Experiment 1 smoke dataset:
 = 12 trajectories
 ```
 
-The initial candidate pairs were:
+The committed formal pairs are:
 
 | Task | Seeds |
 |---|---|
-| `blocks_ranking_size` | `200001`, `200002` |
-| `hanging_mug` | `200001`, `200002` |
-| `stamp_seal` | `200003`, `200004` |
+| `blocks_ranking_size` | `200002`, `200003` |
+| `hanging_mug` | `200001`, `200003` |
+| `stamp_seal` | `200004`, `200005` |
+
+The machine-readable plan is
+`experiments/policy_shift/configs/matched_smoke_seed_plan.json`. Every collector
+invocation verifies that its task/seed is authorized by this plan and records
+the plan SHA256 in the pair manifest.
 
 Remote Expert-only screening established that `blocks_ranking_size/200001`,
 `hanging_mug/200002`, and `stamp_seal/200003` fail the unchanged Expert gate in
 the fixed remote runtime. They are not formal pairs. Keep the three passing
 seeds (`blocks_ranking_size/200002`, `hanging_mug/200001`, and
-`stamp_seal/200004`) and determine one replacement per task before formal
-collection. Screen only Expert, in ascending seed order, and take the first
-seed for which both `plan_success` and `check_success()` are true. Do not run
-Pi0.5 while selecting replacements. Record every attempted seed and result.
+`stamp_seal/200004`). Replacement screening then used Expert only, proceeded
+in ascending seed order, and accepted the first seed for which both
+`plan_success` and `check_success()` passed in two independent Python
+processes. Pi0.5 was not loaded during selection. The complete record is in
+`experiments/policy_shift/provenance/remote_expert_seed_screen_gpu5.md`.
 
 Do not collect Expert and Pi0.5 separately. The checked-in collector creates
 both sides sequentially in one process, resets the identical task seed, and
@@ -144,12 +150,7 @@ GPU_ID=5 \
 bash experiments/policy_shift/run_remote_matched_collection.sh preflight
 ```
 
-Do not proceed unless every invocation prints `PREFLIGHT_OK`. The original six
-preflights have passed, but formal collection is now paused until the three
-failed Expert seeds are replaced and the final seed plan is committed. The
-checked-in runner deliberately refuses `collect` while this gate is open.
-
-After the final seed plan is pushed, update to that commit and run:
+Do not proceed unless every invocation prints `PREFLIGHT_OK`. Then run:
 
 ```bash
 COLLECTION_PYTHON=/absolute/path/to/python \

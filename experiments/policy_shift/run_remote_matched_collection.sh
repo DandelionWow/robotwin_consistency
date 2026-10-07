@@ -37,6 +37,7 @@ project_root=$(cd -- "$script_dir/../.." && pwd)
 robotwin_root="$project_root/third_party/robotwin"
 provenance_dir="$project_root/experiments/policy_shift/provenance"
 task_config="$robotwin_root/task_config/demo_clean.yml"
+seed_plan="$project_root/experiments/policy_shift/configs/matched_smoke_seed_plan.json"
 output_dir=${OUTPUT_DIR:-"$project_root/outputs/policy_shift/matched_raw"}
 gpu_id=${GPU_ID:-0}
 denoiser=${DENOISER:-optix}
@@ -65,7 +66,7 @@ if [[ -n "$(git -C "$robotwin_root" status --porcelain=v1 --untracked-files=no)"
   exit 1
 fi
 
-for path in "$COLLECTION_PYTHON" "$CUDA_ROOT/bin/ptxas" "$task_config"; do
+for path in "$COLLECTION_PYTHON" "$CUDA_ROOT/bin/ptxas" "$task_config" "$seed_plan"; do
   if [[ ! -e "$path" ]]; then
     echo "Required path does not exist: $path" >&2
     exit 1
@@ -78,9 +79,29 @@ fi
 
 code_provenance="$provenance_dir/code_provenance.json"
 if [[ -f "$code_provenance" ]]; then
-  echo "Reusing existing code provenance: $code_provenance"
-  echo "The collector will reject it if the root or RoboTwin commit is stale."
-else
+  current_root_commit=$(git -C "$project_root" rev-parse HEAD)
+  current_robotwin_commit=$(git -C "$robotwin_root" rev-parse HEAD)
+  read -r recorded_root_commit recorded_robotwin_commit < <(
+    "$COLLECTION_PYTHON" -c \
+      'import json, sys; p=json.load(open(sys.argv[1])); print(p.get("root_commit", ""), p.get("robotwin_commit", ""))' \
+      "$code_provenance"
+  )
+  if [[ "$recorded_root_commit" == "$current_root_commit" && \
+        "$recorded_robotwin_commit" == "$current_robotwin_commit" ]]; then
+    echo "Reusing current code provenance: $code_provenance"
+  else
+    archive_dir="$project_root/outputs/policy_shift/logs/stale_provenance_${recorded_root_commit:0:12}_before_${current_root_commit:0:12}"
+    mkdir -p "$archive_dir"
+    for generated_name in code_provenance.json root.patch robotwin.patch; do
+      generated_path="$provenance_dir/$generated_name"
+      if [[ -f "$generated_path" ]]; then
+        mv "$generated_path" "$archive_dir/$generated_name"
+      fi
+    done
+    echo "Archived stale generated provenance at $archive_dir"
+  fi
+fi
+if [[ ! -f "$code_provenance" ]]; then
   "$COLLECTION_PYTHON" "$project_root/experiments/policy_shift/capture_code_provenance.py" \
     --root "$project_root" \
     --output-dir "$provenance_dir"
@@ -94,10 +115,11 @@ tasks=(
   stamp_seal
   stamp_seal
 )
-seeds=(200001 200002 200001 200002 200003 200004)
+seeds=(200002 200003 200001 200003 200004 200005)
 
 common_args=(
   --task-config "$task_config"
+  --seed-plan "$seed_plan"
   --output-dir "$output_dir"
   --gpu-id "$gpu_id"
   --cuda-root "$CUDA_ROOT"
@@ -128,10 +150,6 @@ if [[ "$mode" == "preflight" ]]; then
   echo "All six preflights passed; no trajectory was collected."
   exit 0
 fi
-
-echo "Formal collection is paused: three candidate seeds failed the Expert gate." >&2
-echo "Complete the documented Expert-only sequential seed screen and commit the final seed plan first." >&2
-exit 1
 
 for index in "${!tasks[@]}"; do
   task=${tasks[$index]}

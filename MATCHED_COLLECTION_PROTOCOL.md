@@ -49,6 +49,11 @@ The identifier is exactly:
 pair_id = {task}__seed{env_seed}
 ```
 
+Every formal invocation also receives the committed machine-readable seed plan
+`experiments/policy_shift/configs/matched_smoke_seed_plan.json`. The collector
+hard-fails if its task/seed is absent and stores the plan SHA256 in the pair
+manifest.
+
 ## Pre-action state gate
 
 Before any expert or policy action, capture:
@@ -153,6 +158,8 @@ Every pair manifest must contain at least:
   "robotwin_patch_sha256": "...",
   "task_config_path": "...",
   "task_config_sha256": "...",
+  "seed_plan_path": ".../matched_smoke_seed_plan.json",
+  "seed_plan_sha256": "...",
   "camera_config_path": "...",
   "camera_config_sha256": "...",
   "embodiment_config_paths": ["..."],
