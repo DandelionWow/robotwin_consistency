@@ -66,6 +66,32 @@ def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
     return digest.hexdigest()
 
 
+def decode_robotwin_rgb_jpeg(encoded: Any, *, source: Path | str = "HDF5") -> np.ndarray:
+    """Recover the RGB array stored by RoboTwin's OpenCV JPEG writer.
+
+    RoboTwin passes an RGB array directly to ``cv2.imencode``. OpenCV treats
+    those channel positions as BGR while constructing the JPEG, and
+    ``cv2.imdecode`` restores the same numeric channel positions. The decoded
+    array is therefore already in RoboTwin's original RGB order; applying
+    ``COLOR_BGR2RGB`` here would swap red and blue.
+    """
+
+    try:
+        import cv2
+    except ImportError as exc:
+        raise RuntimeError("RoboTwin JPEG decoding requires OpenCV") from exc
+
+    frame = cv2.imdecode(
+        np.frombuffer(bytes(encoded), dtype=np.uint8),
+        cv2.IMREAD_COLOR,
+    )
+    if frame is None:
+        raise ValueError(f"Could not decode head RGB in {source}")
+    if frame.ndim != 3 or frame.shape[2] != 3:
+        raise ValueError(f"Decoded head RGB has invalid shape {frame.shape} in {source}")
+    return frame
+
+
 def checkpoint_identity(checkpoint_dir: Path) -> dict[str, Any]:
     """Hash every inference-relevant file in a PyTorch or Orbax checkpoint.
 

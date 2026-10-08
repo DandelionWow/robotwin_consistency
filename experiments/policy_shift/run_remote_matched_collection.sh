@@ -58,7 +58,7 @@ case "$denoiser" in
   *) echo "DENOISER must be oidn, optix, or none" >&2; exit 2 ;;
 esac
 
-required_robotwin_commit=ce63ccb13e7b3e891ed6209b9b374c07e73c9311
+required_robotwin_commit=43e8910a716473dcf45827911c6512fad893d510
 actual_robotwin_commit=$(git -C "$robotwin_root" rev-parse HEAD)
 if [[ "$actual_robotwin_commit" != "$required_robotwin_commit" ]]; then
   echo "RoboTwin commit mismatch" >&2
@@ -121,7 +121,7 @@ tasks=(
   stamp_seal
   stamp_seal
 )
-seeds=(200002 200003 200001 200003 200004 200005)
+seeds=(200002 200003 200001 200003 200025 200028)
 
 common_args=(
   --task-config "$task_config"

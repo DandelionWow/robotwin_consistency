@@ -25,6 +25,7 @@ from protocol import (
     cadence_record,
     canonical_state_json,
     checkpoint_identity,
+    decode_robotwin_rgb_jpeg,
     pair_length_eligibility,
     pair_id,
     require_matching_cadence,
@@ -494,11 +495,8 @@ def _rewrite_video_from_hdf5(hdf5_path: Path, video_path: Path, fps: float) -> N
         encoded = handle["/observation/head_camera/rgb"]
         frames = []
         for item in encoded:
-            frame = cv2.imdecode(np.frombuffer(bytes(item), dtype=np.uint8), cv2.IMREAD_COLOR)
-            if frame is None:
-                raise ValueError(f"Could not decode head RGB in {hdf5_path}")
-            frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    array = np.asarray(frames, dtype=np.uint8)
+            frames.append(decode_robotwin_rgb_jpeg(item, source=hdf5_path))
+    array = np.stack(frames).astype(np.uint8, copy=False)
     temporary = video_path.with_name(video_path.stem + ".cadence.mp4")
     process = subprocess.Popen(
         [
@@ -633,8 +631,14 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
             "model_name": preflight.policy["model_name"],
             "checkpoint_id": preflight.policy["checkpoint_id"],
             "pi0_step": preflight.policy["pi0_step"],
+            "asset_id": preflight.policy["asset_id"],
         }
         policy_model = pi_deploy.get_model(model_args)
+        if policy_model.asset_id != str(preflight.policy["asset_id"]):
+            raise RuntimeError(
+                "Pi0.5 loaded a normalization asset different from the policy config: "
+                f"loaded={policy_model.asset_id!r} configured={preflight.policy['asset_id']!r}"
+            )
         pi_deploy.reset_model(policy_model)
         import jax
         import torch
@@ -672,6 +676,11 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
         original_take_action = policy_task.take_action
 
         def recorded_take_action(action: Any, *call_args: Any, **call_kwargs: Any) -> Any:
+            step_limit = policy_task.step_lim
+            if policy_task.eval_success or (
+                step_limit is not None and policy_task.take_action_cnt >= step_limit
+            ):
+                return original_take_action(action, *call_args, **call_kwargs)
             raw_commands.append(np.asarray(action, dtype=np.float32).copy())
             return original_take_action(action, *call_args, **call_kwargs)
 
@@ -683,7 +692,14 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
             policy_task, policy_proxy, stage_dir / "pi05", cadence
         )
         commands_path = stage_dir / "pi05/raw_policy_commands.npy"
-        np.save(commands_path, np.asarray(raw_commands, dtype=np.float32), allow_pickle=False)
+        command_array = np.asarray(raw_commands, dtype=np.float32)
+        if command_array.ndim != 2 or command_array.shape[1] != 14:
+            raise ValueError(
+                f"Executed Pi0.5 command archive must have shape (T, 14), got {command_array.shape}"
+            )
+        if not np.all(np.isfinite(command_array)):
+            raise ValueError("Executed Pi0.5 command archive contains NaN or infinity")
+        np.save(commands_path, command_array, allow_pickle=False)
         if policy_result["length"] < args.minimum_frames:
             _write_rejection(
                 stage_dir,
@@ -750,9 +766,11 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
                 "policy_checkpoint_manifest": preflight.checkpoint_manifest,
                 "policy_config": str(args.policy_config.resolve()),
                 "policy_config_sha256": sha256_file(args.policy_config.resolve()),
+                "policy_asset_id": policy_model.asset_id,
                 "model_code_commit": preflight.code_provenance["robotwin_commit"],
                 "preprocessing": "RoboTwin pi05 deploy_policy.encode_obs",
                 "action_convention": "14D dual-arm joint/gripper target command",
+                "executed_policy_command_count": int(command_array.shape[0]),
                 "runtime": policy_runtime,
                 "success": policy_success,
                 "success_source": "task_success_check",

@@ -12,7 +12,10 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
-from protocol import require_uniform_timestamp_grid
+try:
+    from .protocol import require_uniform_timestamp_grid
+except ImportError:  # Direct execution from experiments/policy_shift.
+    from protocol import require_uniform_timestamp_grid
 
 
 EEF_INDICES_26 = np.asarray([7, 8, 9, 10, 11, 12, 6, 20, 21, 22, 23, 24, 25, 19])

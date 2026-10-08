@@ -27,6 +27,7 @@ from protocol import (
     build_windows,
     cadence_record,
     checkpoint_identity,
+    decode_robotwin_rgb_jpeg,
     generation_seed,
     legacy_episode_formal_eligible,
     load_and_validate_reference_stat,
@@ -48,6 +49,24 @@ from protocol import (
 
 
 class ProtocolTest(unittest.TestCase):
+    def test_robotwin_jpeg_decode_preserves_rgb_channel_positions(self):
+        try:
+            import cv2
+        except ImportError:
+            self.skipTest("OpenCV is unavailable")
+
+        rgb = np.zeros((24, 24, 3), dtype=np.uint8)
+        rgb[..., 0] = 240
+        rgb[..., 1] = 80
+        rgb[..., 2] = 10
+        success, encoded = cv2.imencode(".jpg", rgb)
+        self.assertTrue(success)
+
+        decoded = decode_robotwin_rgb_jpeg(encoded.tobytes(), source="test")
+        channel_means = decoded.mean(axis=(0, 1))
+        self.assertGreater(channel_means[0], channel_means[1])
+        self.assertGreater(channel_means[1], channel_means[2])
+
     def test_sampling_proxy_never_appends_off_grid_terminal_frame(self):
         class Scene:
             def step(self):

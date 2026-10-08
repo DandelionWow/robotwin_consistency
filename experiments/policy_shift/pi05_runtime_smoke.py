@@ -12,11 +12,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-import cv2
 import h5py
 import numpy as np
 
-from protocol import checkpoint_identity, sha256_file
+from protocol import checkpoint_identity, decode_robotwin_rgb_jpeg, sha256_file
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -27,11 +26,7 @@ def _decode_rgb(value: Any) -> np.ndarray:
     array = np.asarray(value)
     if array.ndim == 3:
         return np.asarray(array[..., :3], dtype=np.uint8)
-    encoded = np.frombuffer(bytes(value), dtype=np.uint8)
-    bgr = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
-    if bgr is None:
-        raise ValueError("Could not decode HDF5 RGB frame")
-    return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+    return decode_robotwin_rgb_jpeg(value, source="Pi0.5 runtime smoke HDF5")
 
 
 def _load_observation(path: Path) -> tuple[list[np.ndarray], np.ndarray]:
@@ -100,6 +95,7 @@ def main() -> int:
             str(config["model_name"]),
             int(config["checkpoint_id"]),
             int(config["pi0_step"]),
+            asset_id=str(config["asset_id"]),
         )
         load_seconds = time.perf_counter() - load_started
         model.set_language(str(args.instruction))
@@ -144,6 +140,7 @@ def main() -> int:
             "instruction": str(args.instruction),
             "image_shapes": [list(image.shape) for image in images],
             "state_shape": list(state.shape),
+            "asset_id": str(config["asset_id"]),
         },
         "output": {
             "action_shape": list(actions.shape),

@@ -1,14 +1,19 @@
 {
   "schema_version": 1,
-  "status": "SCREENING_REQUIRED",
+  "status": "FORMAL",
   "invalidation": {
     "date": "2026-10-08",
     "reason": "The first returned collection exposed an off-grid terminal-frame bug in the collector, and stamp_seal Expert trajectories for seeds 200004 and 200005 had only 77 and 75 frames. Formal collection is blocked until two stamp_seal seeds pass the corrected exact-grid and >=81-frame Expert screen twice.",
     "diagnostic_artifact": "/data1/liuwenhao/Projects/robotwin_consistency_aba366",
     "preserve_artifact": true
   },
-  "selection_method": "Retain Expert-success candidates; for each failed candidate, scan later seeds in ascending order using Expert only and accept the first seed that passes plan_success and check_success in two independent Python processes.",
-  "selection_provenance": "experiments/policy_shift/provenance/remote_expert_seed_screen_gpu5.md",
+  "resolution": {
+    "date": "2026-10-08",
+    "status": "COMPLETE",
+    "reason": "stamp_seal seeds 200025 and 200028 each passed plan_success, check_success, the exact 0.1-second timestamp grid, and the 81-frame minimum in two independent Python processes."
+  },
+  "selection_method": "Retain the already eligible pairs for blocks_ranking_size and hanging_mug. For stamp_seal, scan later seeds in ascending order using Expert only and accept the first two seeds that pass plan_success, check_success, exact-grid validation, and the >=81-frame gate in two independent Python processes.",
+  "selection_provenance": "experiments/policy_shift/provenance/remote_corrected_stamp_seed_screen_gpu5.md",
   "policy_used_during_selection": false,
   "tasks": [
     {
@@ -27,11 +32,10 @@
     },
     {
       "task": "stamp_seal",
-      "seeds": [200004, 200005],
-      "status": "REPLACE_BOTH_SHORT_SEEDS",
-      "retained_seed": 200004,
-      "replacement_seed": 200005,
-      "rejected_candidates": [200003]
+      "seeds": [200025, 200028],
+      "status": "CORRECTED_SCREEN_COMPLETE",
+      "replacement_seeds": [200025, 200028],
+      "rejected_short_seeds": [200004, 200005]
     }
   ]
 }
