@@ -12,6 +12,8 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
+from protocol import require_uniform_timestamp_grid
+
 
 EEF_INDICES_26 = np.asarray([7, 8, 9, 10, 11, 12, 6, 20, 21, 22, 23, 24, 25, 19])
 
@@ -57,6 +59,7 @@ class BWMTrajectory:
         ):
             if not np.all(np.isfinite(values)):
                 raise ValueError(f"{name} contains NaN or infinity")
+        require_uniform_timestamp_grid(self.frame_timestamps, 1.0 / self.raw_fps)
 
 
 def _quaternion_wxyz_to_rpy(quaternion: np.ndarray) -> np.ndarray:

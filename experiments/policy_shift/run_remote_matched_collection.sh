@@ -28,10 +28,6 @@ if [[ $# -ne 1 || ( "$1" != "preflight" && "$1" != "collect" ) ]]; then
 fi
 mode=$1
 
-: "${COLLECTION_PYTHON:?Set COLLECTION_PYTHON to the exact environment Python executable}"
-: "${CUDA_ROOT:?Set CUDA_ROOT to a CUDA toolkit containing bin/ptxas}"
-: "${CUROBO_SOURCE:?Set CUROBO_SOURCE to the clean CuRobo checkout used by the editable install}"
-
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 project_root=$(cd -- "$script_dir/../.." && pwd)
 robotwin_root="$project_root/third_party/robotwin"
@@ -42,6 +38,16 @@ output_dir=${OUTPUT_DIR:-"$project_root/outputs/policy_shift/matched_raw"}
 gpu_id=${GPU_ID:-0}
 denoiser=${DENOISER:-optix}
 xla_memory_fraction=${XLA_MEMORY_FRACTION:-0.4}
+
+if grep -q '"status": "SCREENING_REQUIRED"' "$seed_plan"; then
+  echo "Formal collection is paused: the committed seed plan requires corrected Expert screening." >&2
+  echo "Run experiments/policy_shift/screen_expert_seeds.py for stamp_seal first." >&2
+  exit 1
+fi
+
+: "${COLLECTION_PYTHON:?Set COLLECTION_PYTHON to the exact environment Python executable}"
+: "${CUDA_ROOT:?Set CUDA_ROOT to a CUDA toolkit containing bin/ptxas}"
+: "${CUROBO_SOURCE:?Set CUROBO_SOURCE to the clean CuRobo checkout used by the editable install}"
 
 case "$gpu_id" in
   0|1|2|3|5) ;;
@@ -128,6 +134,7 @@ common_args=(
   --physics-timestep 0.004
   --physics-steps-per-sample 25
   --bwm-sampling-stride 1
+  --minimum-frames 81
   --instruction-type unseen
   --denoiser "$denoiser"
 )

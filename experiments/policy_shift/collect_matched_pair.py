@@ -11,7 +11,6 @@ import importlib.metadata
 import json
 import os
 import re
-import shutil
 import site
 import subprocess
 import sys
@@ -26,9 +25,11 @@ from protocol import (
     cadence_record,
     canonical_state_json,
     checkpoint_identity,
+    pair_length_eligibility,
     pair_id,
     require_matching_cadence,
     require_matching_initial_state,
+    require_uniform_timestamp_grid,
     sha256_file,
     state_fingerprint,
     validate_formal_seed_plan,
@@ -167,11 +168,6 @@ class SamplingSceneProxy:
             self._task._take_picture()
             self.sample_steps.append(self.physics_steps)
         return result
-
-    def capture_final_if_needed(self) -> None:
-        if self.sample_steps[-1] != self.physics_steps:
-            self._task._take_picture()
-            self.sample_steps.append(self.physics_steps)
 
     @property
     def timestamps(self) -> np.ndarray:
@@ -396,7 +392,10 @@ def _finish_recording(
     side_dir: Path,
     cadence: dict[str, Any],
 ) -> dict[str, Any]:
-    proxy.capture_final_if_needed()
+    timestamps = proxy.timestamps
+    timestamp_grid = require_uniform_timestamp_grid(
+        timestamps, float(cadence["raw_frame_dt"])
+    )
     task.close_env()
     task.merge_pkl_to_hdf5_video()
     task.remove_data_cache()
@@ -411,13 +410,13 @@ def _finish_recording(
         raise RuntimeError("Recording finalization requires cv2 and h5py") from exc
     with h5py.File(hdf5_path, "r+") as handle:
         length = int(handle["/endpose/left_endpose"].shape[0])
-        if length != len(proxy.timestamps):
+        if length != len(timestamps):
             raise ValueError(
-                f"Timestamp/HDF5 length mismatch: timestamps={len(proxy.timestamps)} rows={length}"
+                f"Timestamp/HDF5 length mismatch: timestamps={len(timestamps)} rows={length}"
             )
         if "frame_timestamp" in handle:
             raise ValueError("Refusing to overwrite existing frame_timestamp")
-        handle.create_dataset("frame_timestamp", data=proxy.timestamps)
+        handle.create_dataset("frame_timestamp", data=timestamps)
         for key, value in cadence.items():
             handle.attrs[key] = value
     capture = cv2.VideoCapture(str(video_path))
@@ -430,13 +429,61 @@ def _finish_recording(
     # RoboTwin's merger writes 30 FPS unconditionally. Re-encode from HDF5 at
     # the actual physics-derived cadence so metadata is not used as a fiction.
     _rewrite_video_from_hdf5(hdf5_path, video_path, float(cadence["raw_fps"]))
+    capture = cv2.VideoCapture(str(video_path))
+    rewritten_length = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    rewritten_fps = float(capture.get(cv2.CAP_PROP_FPS))
+    capture.release()
+    if rewritten_length != length:
+        raise ValueError(
+            f"Rewritten video/HDF5 length mismatch: video={rewritten_length} hdf5={length}"
+        )
+    if not np.isclose(rewritten_fps, float(cadence["raw_fps"]), rtol=0.0, atol=1e-6):
+        raise ValueError(
+            f"Rewritten video FPS mismatch: video={rewritten_fps} "
+            f"expected={cadence['raw_fps']}"
+        )
     return {
         "trajectory_path": str(hdf5_path.resolve()),
         "video_path": str(video_path.resolve()),
         "length": length,
         "geometry": [width, height],
+        "video_fps": rewritten_fps,
         "timestamps_path": f"{hdf5_path.resolve()}::/frame_timestamp",
+        "timestamp_grid": timestamp_grid,
     }
+
+
+def _write_rejection(
+    stage_dir: Path,
+    *,
+    identifier: str,
+    task: str,
+    env_seed: int,
+    reason: str,
+    side: str,
+    actual_frames: int,
+    minimum_frames: int,
+    result: dict[str, Any],
+    preflight: Preflight,
+) -> None:
+    _write_json(
+        stage_dir / "rejection.json",
+        {
+            "schema_version": 1,
+            "status": "REJECTED",
+            "pair_id": identifier,
+            "task": task,
+            "env_seed": int(env_seed),
+            "reason": reason,
+            "side": side,
+            "actual_frames": int(actual_frames),
+            "minimum_required_frames": int(minimum_frames),
+            "timestamp_grid": result["timestamp_grid"],
+            "root_commit": preflight.code_provenance["root_commit"],
+            "robotwin_commit": preflight.code_provenance["robotwin_commit"],
+            "seed_plan_sha256": preflight.seed_plan_sha256,
+        },
+    )
 
 
 def _rewrite_video_from_hdf5(hdf5_path: Path, video_path: Path, fps: float) -> None:
@@ -554,6 +601,23 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
         expert_result = _finish_recording(
             expert_task, expert_proxy, stage_dir / "expert", cadence
         )
+        if expert_result["length"] < args.minimum_frames:
+            _write_rejection(
+                stage_dir,
+                identifier=identifier,
+                task=args.task,
+                env_seed=args.env_seed,
+                reason="EXPERT_SHORT",
+                side="expert",
+                actual_frames=expert_result["length"],
+                minimum_frames=args.minimum_frames,
+                result=expert_result,
+                preflight=preflight,
+            )
+            raise RuntimeError(
+                f"EXPERT_SHORT: {expert_result['length']} frames; "
+                f"minimum is {args.minimum_frames}. Staging data was preserved."
+            )
 
         instruction_module = importlib.import_module("generate_episode_instructions")
         candidates = instruction_module.generate_episode_descriptions(
@@ -620,6 +684,29 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
         )
         commands_path = stage_dir / "pi05/raw_policy_commands.npy"
         np.save(commands_path, np.asarray(raw_commands, dtype=np.float32), allow_pickle=False)
+        if policy_result["length"] < args.minimum_frames:
+            _write_rejection(
+                stage_dir,
+                identifier=identifier,
+                task=args.task,
+                env_seed=args.env_seed,
+                reason="POLICY_SHORT",
+                side="pi05",
+                actual_frames=policy_result["length"],
+                minimum_frames=args.minimum_frames,
+                result=policy_result,
+                preflight=preflight,
+            )
+            raise RuntimeError(
+                f"POLICY_SHORT: {policy_result['length']} frames; "
+                f"minimum is {args.minimum_frames}. Staging data was preserved."
+            )
+
+        length_eligibility = pair_length_eligibility(
+            expert_result["length"], policy_result["length"], args.minimum_frames
+        )
+        if not length_eligibility["eligible"]:
+            raise RuntimeError(f"Pair length gate failed unexpectedly: {length_eligibility}")
 
         manifest = {
             "schema_version": 1,
@@ -647,6 +734,8 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
             "embodiment_config_paths": [str(path.resolve()) for path in embodiment_paths],
             "embodiment_config_sha256": [sha256_file(path) for path in embodiment_paths],
             "cadence": cadence,
+            "minimum_required_frames": args.minimum_frames,
+            "pair_length_eligibility": length_eligibility,
             "expert": {
                 **expert_result,
                 "success": True,
@@ -707,6 +796,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--physics-timestep", type=float, default=1 / 250)
     parser.add_argument("--physics-steps-per-sample", type=int, default=25)
     parser.add_argument("--bwm-sampling-stride", type=int, default=1)
+    parser.add_argument("--minimum-frames", type=int, default=81)
     parser.add_argument("--instruction-type", default="unseen")
     parser.add_argument("--denoiser", choices=("oidn", "optix", "none"), default="optix")
     parser.add_argument("--oidn-library-dir", type=Path)
@@ -714,6 +804,8 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.physics_timestep <= 0 or args.physics_steps_per_sample <= 0:
         parser.error("physics cadence values must be positive")
+    if args.minimum_frames <= 0:
+        parser.error("--minimum-frames must be positive")
     return args
 
 

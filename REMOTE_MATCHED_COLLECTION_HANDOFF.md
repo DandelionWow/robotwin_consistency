@@ -1,6 +1,15 @@
 # Remote RoboTwin matched-collection handoff
 
-Status date: 2026-10-07
+Status date: 2026-10-08
+
+> **FORMAL COLLECTION PAUSED.** The returned artifact at
+> `/data1/liuwenhao/Projects/robotwin_consistency_aba366` is preserved as
+> diagnostic evidence, but is not a formal dataset. Eleven of twelve
+> trajectories contain one terminal sample outside the 0.1-second grid, and
+> the two `stamp_seal` Expert trajectories contain only 77 and 75 frames. The
+> collector now records only exact-grid samples and hard-rejects either side
+> below 81 frames. The seed plan remains `SCREENING_REQUIRED` until two new
+> `stamp_seal` seeds pass the corrected Expert screen twice each.
 
 ## Exact assignment
 
@@ -13,7 +22,7 @@ Experiment 1 smoke dataset:
 = 12 trajectories
 ```
 
-The committed formal pairs are:
+The previous candidate pairs were:
 
 | Task | Seeds |
 |---|---|
@@ -21,10 +30,41 @@ The committed formal pairs are:
 | `hanging_mug` | `200001`, `200003` |
 | `stamp_seal` | `200004`, `200005` |
 
-The machine-readable plan is
+The machine-readable plan is currently paused in
 `experiments/policy_shift/configs/matched_smoke_seed_plan.json`. Every collector
 invocation verifies that its task/seed is authorized by this plan and records
 the plan SHA256 in the pair manifest.
+
+## Corrected stamp-seed screen
+
+On the working remote GPU-5 server, pull the fix commit and run this one command
+with the same known-good Python, CUDA, and CuRobo paths used previously:
+
+```bash
+export PYTHONNOUSERSITE=1
+export COLLECTION_PYTHON=/absolute/path/to/python
+export CUDA_ROOT=/absolute/path/to/cuda-12.8
+export CUROBO_SOURCE=/absolute/path/to/clean/curobo-v0.7.8
+export GPU_ID=5
+"$COLLECTION_PYTHON" experiments/policy_shift/screen_expert_seeds.py \
+  --task stamp_seal \
+  --start-seed 200006 \
+  --candidate-count 20 \
+  --needed 2 \
+  --repeats 2 \
+  --task-config third_party/robotwin/task_config/demo_clean.yml \
+  --gpu-id "$GPU_ID" \
+  --cuda-root "$CUDA_ROOT" \
+  --curobo-source "$CUROBO_SOURCE" \
+  --minimum-frames 81 \
+  --output-dir outputs/policy_shift/expert_seed_screen_stamp
+```
+
+Each attempt is a separate Python process. The screen uses Expert only and
+requires `plan_success`, `check_success()`, an exact 0.1-second timestamp grid,
+and at least 81 frames. Preserve and return the entire output directory. Do not
+run Pi0.5 or the formal collection runner until its two selected seeds are
+committed into a new `FORMAL` plan.
 
 Remote Expert-only screening established that `blocks_ranking_size/200001`,
 `hanging_mug/200002`, and `stamp_seal/200003` fail the unchanged Expert gate in

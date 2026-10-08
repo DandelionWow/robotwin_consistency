@@ -20,6 +20,14 @@ Before GPU generation, all of the following must pass:
 6. BWM one-window runtime smoke test;
 7. paired MP4 frame count, geometry, and FPS validation.
 
+The collector samples only at exact integer multiples of the declared physics
+stride. It never appends a final off-grid frame. The actual `/frame_timestamp`
+array is validated interval-by-interval before an artifact can be published;
+cadence attributes alone are not accepted as evidence. The collector also
+stops after Expert finalization, before Pi0.5 model loading, when Expert has
+fewer than 81 frames and preserves a machine-readable `rejection.json` in the
+staging directory.
+
 Old episodes whose seed mapping is `AMBIGUOUS` or `UNKNOWN` cannot enter formal
 matched-pair statistics. A `_fail` filename is not a verified episode label.
 

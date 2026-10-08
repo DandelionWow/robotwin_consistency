@@ -110,6 +110,12 @@ produces a 10 Hz raw trajectory. The exact values used by a run must be stored
 in the pair manifest. Expert and policy effective FPS must compare equal or the
 pair hard-fails.
 
+The recorder samples at physics steps `0, 25, 50, ...` only. It must not append
+the rollout's final state when that state falls between sampling boundaries.
+Before publication, every value in `/frame_timestamp` is checked against the
+declared 0.1-second grid; a cadence attribute without a matching timestamp
+array is insufficient evidence.
+
 MP4 metadata is only an encoding field; it does not establish model cadence by
 itself.
 
@@ -284,6 +290,7 @@ Smoke A passes only when all six requested pairs satisfy:
 - `STATE_MATCH`;
 - common realized-EEF schema;
 - equal effective cadence;
+- an exact, finite, strictly increasing timestamp grid on both sides;
 - both trajectory lengths at least 81;
 - no missing HDF5/video/instruction/camera record;
 - no duplicate `pair_id`.

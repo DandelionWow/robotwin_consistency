@@ -412,6 +412,69 @@ def cadence_record(raw_fps: float, bwm_sampling_stride: int) -> dict[str, float 
     }
 
 
+def require_uniform_timestamp_grid(
+    timestamps: Sequence[float] | np.ndarray,
+    expected_dt: float,
+    *,
+    absolute_tolerance: float = 1e-9,
+) -> dict[str, Any]:
+    """Require samples to lie exactly on one monotonic physical-time grid."""
+
+    values = np.asarray(timestamps, dtype=np.float64)
+    expected_dt = float(expected_dt)
+    tolerance = float(absolute_tolerance)
+    if values.ndim != 1 or values.size == 0:
+        raise ValueError(
+            f"TIMESTAMP_GRID_INVALID: expected a non-empty 1D array, got {values.shape}"
+        )
+    if not np.all(np.isfinite(values)):
+        bad_index = int(np.flatnonzero(~np.isfinite(values))[0])
+        raise ValueError(
+            f"TIMESTAMP_GRID_INVALID: non-finite timestamp at index {bad_index}: "
+            f"{values[bad_index]}"
+        )
+    if not math.isfinite(expected_dt) or expected_dt <= 0:
+        raise ValueError(f"expected_dt must be finite and positive, got {expected_dt}")
+    if not math.isfinite(tolerance) or tolerance < 0:
+        raise ValueError(
+            f"absolute_tolerance must be finite and non-negative, got {tolerance}"
+        )
+    if not math.isclose(float(values[0]), 0.0, rel_tol=0.0, abs_tol=tolerance):
+        raise ValueError(
+            f"TIMESTAMP_GRID_INVALID: first timestamp must be 0, got {values[0]}"
+        )
+
+    deltas = np.diff(values)
+    nonpositive = np.flatnonzero(deltas <= 0)
+    if nonpositive.size:
+        index = int(nonpositive[0])
+        raise ValueError(
+            "TIMESTAMP_GRID_INVALID: timestamps must be strictly increasing; "
+            f"interval {index}->{index + 1} has dt={deltas[index]}"
+        )
+    off_grid = np.flatnonzero(
+        ~np.isclose(deltas, expected_dt, rtol=0.0, atol=tolerance)
+    )
+    if off_grid.size:
+        index = int(off_grid[0])
+        raise ValueError(
+            "TIMESTAMP_GRID_INVALID: "
+            f"interval {index}->{index + 1} has dt={deltas[index]}, "
+            f"expected {expected_dt}"
+        )
+
+    return {
+        "status": "EXACT_GRID",
+        "sample_count": int(values.size),
+        "start_timestamp": float(values[0]),
+        "end_timestamp": float(values[-1]),
+        "expected_dt": expected_dt,
+        "minimum_dt": float(deltas.min()) if deltas.size else None,
+        "maximum_dt": float(deltas.max()) if deltas.size else None,
+        "absolute_tolerance": tolerance,
+    }
+
+
 def require_matching_cadence(
     expert: dict[str, Any],
     policy: dict[str, Any],

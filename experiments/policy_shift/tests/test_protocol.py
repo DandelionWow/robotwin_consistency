@@ -13,10 +13,12 @@ TEST_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TEST_ROOT))
 
 from bwm_conversion import (
+    build_bwm_trajectory,
     realized_eef16_from_fields,
     realized_eef16_from_mapping,
     state_pose14_from_realized_eef16,
 )
+from collect_matched_pair import SamplingSceneProxy
 from protocol import (
     aggregate_paired_metric,
     aggregate_records,
@@ -33,6 +35,7 @@ from protocol import (
     pair_length_eligibility,
     require_matching_cadence,
     require_matching_initial_state,
+    require_uniform_timestamp_grid,
     select_protocol_windows,
     state_fingerprint,
     summarize_tracker_results,
@@ -45,6 +48,26 @@ from protocol import (
 
 
 class ProtocolTest(unittest.TestCase):
+    def test_sampling_proxy_never_appends_off_grid_terminal_frame(self):
+        class Scene:
+            def step(self):
+                return None
+
+        class Task:
+            def __init__(self):
+                self.pictures = 0
+
+            def _take_picture(self):
+                self.pictures += 1
+
+        task = Task()
+        proxy = SamplingSceneProxy(Scene(), task, physics_timestep=0.004, steps_per_sample=25)
+        for _ in range(27):
+            proxy.step()
+        np.testing.assert_allclose(proxy.timestamps, [0.0, 0.1])
+        self.assertEqual(task.pictures, 1)
+        self.assertEqual(proxy.physics_steps, 27)
+
     def test_orbax_checkpoint_identity_covers_params_and_assets(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -163,6 +186,41 @@ class ProtocolTest(unittest.TestCase):
     def test_cadence_mismatch_hard_fails(self):
         with self.assertRaisesRegex(ValueError, "CADENCE_MISMATCH"):
             require_matching_cadence(cadence_record(30, 1), cadence_record(10, 1))
+
+    def test_uniform_timestamp_grid_accepts_exact_samples(self):
+        result = require_uniform_timestamp_grid([0.0, 0.1, 0.2], 0.1)
+        self.assertEqual(result["status"], "EXACT_GRID")
+        self.assertEqual(result["sample_count"], 3)
+        self.assertAlmostEqual(result["minimum_dt"], 0.1)
+
+    def test_uniform_timestamp_grid_rejects_off_grid_terminal_sample(self):
+        with self.assertRaisesRegex(
+            ValueError, r"interval 1->2 has dt=0\.07.*expected 0\.1"
+        ):
+            require_uniform_timestamp_grid([0.0, 0.1, 0.17], 0.1)
+
+    def test_uniform_timestamp_grid_rejects_nonfinite_and_nonmonotonic(self):
+        with self.assertRaisesRegex(ValueError, "non-finite timestamp"):
+            require_uniform_timestamp_grid([0.0, np.nan], 0.1)
+        with self.assertRaisesRegex(ValueError, "strictly increasing"):
+            require_uniform_timestamp_grid([0.0, 0.1, 0.1], 0.1)
+
+    def test_bwm_trajectory_rejects_declared_fps_with_off_grid_timestamp(self):
+        realized = np.zeros((3, 16), dtype=np.float32)
+        realized[:, 3] = 1.0
+        realized[:, 11] = 1.0
+        with self.assertRaisesRegex(ValueError, "TIMESTAMP_GRID_INVALID"):
+            build_bwm_trajectory(
+                head_rgb=np.zeros((3, 2, 2, 3), dtype=np.uint8),
+                realized_eef_wxyz16=realized,
+                frame_timestamps=[0.0, 0.1, 0.17],
+                task="task",
+                pair_id="task__seed1",
+                side="expert",
+                success=True,
+                env_seed=1,
+                raw_fps=10.0,
+            )
 
     def test_short_side_excludes_whole_pair(self):
         result = pair_length_eligibility(80, 100)
