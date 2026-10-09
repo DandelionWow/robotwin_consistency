@@ -18,7 +18,7 @@ from bwm_conversion import (
     realized_eef16_from_mapping,
     state_pose14_from_realized_eef16,
 )
-from collect_matched_pair import SamplingSceneProxy
+from collect_matched_pair import SamplingSceneProxy, _parse_nvidia_smi_gpu_rows
 from protocol import (
     aggregate_paired_metric,
     aggregate_records,
@@ -49,6 +49,25 @@ from protocol import (
 
 
 class ProtocolTest(unittest.TestCase):
+    def test_nvidia_smi_index_is_resolved_to_stable_uuid(self):
+        inventory = _parse_nvidia_smi_gpu_rows(
+            "4, GPU-pro, NVIDIA RTX PRO 6000 Blackwell Workstation Edition, 00000000:C1:00.0\n"
+            "5, GPU-d, NVIDIA RTX 6000D, 00000000:E1:00.0\n"
+        )
+        self.assertEqual(inventory[4]["physical_gpu_uuid"], "GPU-pro")
+        self.assertEqual(
+            inventory[4]["physical_gpu_name"],
+            "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+        )
+        self.assertEqual(inventory[5]["physical_gpu_pci_bus_id"], "00000000:E1:00.0")
+
+    def test_nvidia_smi_identity_rejects_duplicate_index(self):
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            _parse_nvidia_smi_gpu_rows(
+                "4, GPU-a, Card A, 00000000:C1:00.0\n"
+                "4, GPU-b, Card B, 00000000:E1:00.0\n"
+            )
+
     def test_robotwin_jpeg_decode_preserves_rgb_channel_positions(self):
         try:
             import cv2

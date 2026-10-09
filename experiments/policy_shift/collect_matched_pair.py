@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import copy
 import hashlib
 import importlib
@@ -192,6 +193,59 @@ class Preflight:
     runtime: dict[str, Any]
 
 
+def _parse_nvidia_smi_gpu_rows(output: str) -> dict[int, dict[str, Any]]:
+    """Parse an NVML-indexed GPU inventory without assuming CUDA ordinal order."""
+
+    inventory: dict[int, dict[str, Any]] = {}
+    for row in csv.reader(output.splitlines()):
+        fields = [field.strip() for field in row]
+        if not fields or fields == [""]:
+            continue
+        if len(fields) != 4:
+            raise ValueError(f"Unexpected nvidia-smi GPU row: {row!r}")
+        try:
+            index = int(fields[0])
+        except ValueError as exc:
+            raise ValueError(f"Invalid nvidia-smi GPU index: {fields[0]!r}") from exc
+        if index in inventory:
+            raise ValueError(f"Duplicate nvidia-smi GPU index: {index}")
+        uuid, name, pci_bus_id = fields[1:]
+        if not uuid.startswith("GPU-") or not name or not pci_bus_id:
+            raise ValueError(f"Incomplete nvidia-smi GPU identity: {row!r}")
+        inventory[index] = {
+            "physical_gpu": index,
+            "physical_gpu_uuid": uuid,
+            "physical_gpu_name": name,
+            "physical_gpu_pci_bus_id": pci_bus_id,
+        }
+    if not inventory:
+        raise ValueError("nvidia-smi returned no GPU identities")
+    return inventory
+
+
+def _resolve_physical_gpu(gpu_id: int) -> dict[str, Any]:
+    """Resolve a user-facing nvidia-smi index to a stable GPU UUID."""
+
+    completed = subprocess.run(
+        [
+            "nvidia-smi",
+            f"--id={gpu_id}",
+            "--query-gpu=index,uuid,name,pci.bus_id",
+            "--format=csv,noheader,nounits",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    inventory = _parse_nvidia_smi_gpu_rows(completed.stdout)
+    if set(inventory) != {gpu_id}:
+        raise RuntimeError(
+            f"nvidia-smi did not resolve requested physical GPU {gpu_id}: "
+            f"returned indices={sorted(inventory)}"
+        )
+    return inventory[gpu_id]
+
+
 def _installed_editable_source(distribution_name: str) -> tuple[str, Path]:
     """Return an installed distribution version and its proven editable source."""
 
@@ -224,6 +278,16 @@ def run_preflight(args: argparse.Namespace) -> Preflight:
     if site.ENABLE_USER_SITE or os.environ.get("PYTHONNOUSERSITE") != "1":
         raise RuntimeError(
             "Start the collector with PYTHONNOUSERSITE=1 to prevent user site-package contamination"
+        )
+    gpu_identity = getattr(args, "gpu_identity", None)
+    if not isinstance(gpu_identity, dict) or gpu_identity.get("physical_gpu") != args.gpu_id:
+        raise RuntimeError("Physical GPU identity must be resolved before preflight")
+    if os.environ.get("CUDA_DEVICE_ORDER") != "PCI_BUS_ID":
+        raise RuntimeError("CUDA_DEVICE_ORDER must be PCI_BUS_ID")
+    if os.environ.get("CUDA_VISIBLE_DEVICES") != gpu_identity["physical_gpu_uuid"]:
+        raise RuntimeError(
+            "CUDA_VISIBLE_DEVICES must contain the resolved physical GPU UUID, got "
+            f"{os.environ.get('CUDA_VISIBLE_DEVICES')!r}"
         )
     cuda_root = args.cuda_root.resolve()
     ptxas = cuda_root / "bin/ptxas"
@@ -340,6 +404,11 @@ def run_preflight(args: argparse.Namespace) -> Preflight:
             "python": sys.executable,
             "python_no_user_site": True,
             "physical_gpu": args.gpu_id,
+            "physical_gpu_uuid": gpu_identity["physical_gpu_uuid"],
+            "physical_gpu_name": gpu_identity["physical_gpu_name"],
+            "physical_gpu_pci_bus_id": gpu_identity["physical_gpu_pci_bus_id"],
+            "cuda_device_order": os.environ["CUDA_DEVICE_ORDER"],
+            "cuda_visible_devices": os.environ["CUDA_VISIBLE_DEVICES"],
             "cuda_root": str(cuda_root),
             "ptxas_version": ptxas_output.splitlines()[-1],
             "ffmpeg": ffmpeg,
@@ -664,13 +733,20 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
                 "RoboTwin process must see exactly one Torch CUDA device, got "
                 f"available={torch.cuda.is_available()} count={torch.cuda.device_count()}"
             )
+        torch_device_name = torch.cuda.get_device_name(0)
+        expected_device_name = str(preflight.runtime["physical_gpu_name"])
+        if torch_device_name != expected_device_name:
+            raise RuntimeError(
+                "Resolved physical GPU identity differs from the visible Torch device: "
+                f"expected={expected_device_name!r} actual={torch_device_name!r}"
+            )
         policy_runtime = {
             **preflight.runtime,
             "jax": jax.__version__,
             "jax_devices": [str(device) for device in jax.devices()],
             "torch": torch.__version__,
             "torch_cuda": torch.version.cuda,
-            "torch_device_name": torch.cuda.get_device_name(0),
+            "torch_device_name": torch_device_name,
             "torch_device_capability": list(torch.cuda.get_device_capability(0)),
             "torch_arch_list": torch.cuda.get_arch_list(),
         }
@@ -858,7 +934,9 @@ def main() -> int:
         value = getattr(args, path_argument)
         if value is not None:
             setattr(args, path_argument, value.resolve())
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+    args.gpu_identity = _resolve_physical_gpu(args.gpu_id)
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_identity["physical_gpu_uuid"]
     os.environ["CUDA_ROOT"] = str(args.cuda_root.resolve())
     os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(args.xla_memory_fraction)
     preflight = run_preflight(args)

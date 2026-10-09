@@ -22,6 +22,7 @@ from collect_matched_pair import (
     _configure_task,
     _git_commit,
     _installed_editable_source,
+    _resolve_physical_gpu,
     capture_initial_state,
 )
 from protocol import require_uniform_timestamp_grid, sha256_file, state_fingerprint
@@ -41,6 +42,13 @@ def _runtime_preflight(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("--gpu-id must be one of physical GPUs 0,1,2,3,4,5")
     if site.ENABLE_USER_SITE or os.environ.get("PYTHONNOUSERSITE") != "1":
         raise RuntimeError("Run with PYTHONNOUSERSITE=1")
+    gpu_identity = getattr(args, "gpu_identity", None)
+    if not isinstance(gpu_identity, dict) or gpu_identity.get("physical_gpu") != args.gpu_id:
+        raise RuntimeError("Physical GPU identity must be resolved before preflight")
+    if os.environ.get("CUDA_DEVICE_ORDER") != "PCI_BUS_ID":
+        raise RuntimeError("CUDA_DEVICE_ORDER must be PCI_BUS_ID")
+    if os.environ.get("CUDA_VISIBLE_DEVICES") != gpu_identity["physical_gpu_uuid"]:
+        raise RuntimeError("CUDA_VISIBLE_DEVICES does not match the resolved GPU UUID")
     ptxas = args.cuda_root.resolve() / "bin/ptxas"
     if not ptxas.is_file():
         raise FileNotFoundError(f"Missing ptxas: {ptxas}")
@@ -71,6 +79,11 @@ def _runtime_preflight(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "python": sys.executable,
         "physical_gpu": args.gpu_id,
+        "physical_gpu_uuid": gpu_identity["physical_gpu_uuid"],
+        "physical_gpu_name": gpu_identity["physical_gpu_name"],
+        "physical_gpu_pci_bus_id": gpu_identity["physical_gpu_pci_bus_id"],
+        "cuda_device_order": os.environ["CUDA_DEVICE_ORDER"],
+        "cuda_visible_devices": os.environ["CUDA_VISIBLE_DEVICES"],
         "cuda_root": str(args.cuda_root.resolve()),
         "ptxas_version": ptxas_output.splitlines()[-1],
         "curobo_version": curobo_version,
@@ -101,11 +114,17 @@ def _screen_once(args: argparse.Namespace) -> dict[str, Any]:
                 "Expert screen must see exactly one Torch CUDA device; "
                 f"available={torch.cuda.is_available()} count={torch.cuda.device_count()}"
             )
+        torch_device_name = torch.cuda.get_device_name(0)
+        if torch_device_name != runtime["physical_gpu_name"]:
+            raise RuntimeError(
+                "Resolved physical GPU identity differs from the visible Torch device: "
+                f"expected={runtime['physical_gpu_name']!r} actual={torch_device_name!r}"
+            )
         runtime.update(
             {
                 "torch": torch.__version__,
                 "torch_cuda": torch.version.cuda,
-                "torch_device_name": torch.cuda.get_device_name(0),
+                "torch_device_name": torch_device_name,
                 "torch_device_capability": list(torch.cuda.get_device_capability(0)),
             }
         )
@@ -207,7 +226,9 @@ def _screen_candidates(args: argparse.Namespace) -> dict[str, Any]:
             result_path = output_dir / f"{args.task}__seed{seed}__attempt{repeat + 1}.json"
             log_path = output_dir / f"{args.task}__seed{seed}__attempt{repeat + 1}.log"
             environment = os.environ.copy()
-            environment["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+            gpu_identity = _resolve_physical_gpu(args.gpu_id)
+            environment["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+            environment["CUDA_VISIBLE_DEVICES"] = gpu_identity["physical_gpu_uuid"]
             environment["CUDA_ROOT"] = str(args.cuda_root.resolve())
             environment["PYTHONNOUSERSITE"] = "1"
             with log_path.open("w", encoding="utf-8") as log:
@@ -309,7 +330,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     if args.single_seed:
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+        args.gpu_identity = _resolve_physical_gpu(args.gpu_id)
+        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_identity["physical_gpu_uuid"]
         os.environ["CUDA_ROOT"] = str(args.cuda_root.resolve())
         result = _screen_once(args)
         if args.result_json is not None:
