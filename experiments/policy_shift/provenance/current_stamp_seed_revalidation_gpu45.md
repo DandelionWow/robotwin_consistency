@@ -64,6 +64,23 @@ screen reuses `_setup_and_capture`, requires three passes with a four-frame
 safety margin, and still does not waive the formal collector's live 81-frame
 publication gate.
 
+## Final formal collection
+
+Both final pairs were collected from root commit
+`0bba51a5afaf895dbd61dd2e8bb090278276fe45` and RoboTwin commit
+`43e8910a716473dcf45827911c6512fad893d510`.
+
+| Seed | GPU | Expert frames | Pi0.5 frames | Commands | Pi0.5 success |
+|---:|---:|---:|---:|---:|---|
+| 200028 | 5 | 83 | 728 | 303 | true |
+| 200050 | 4 | 85 | 856 | 400 | false |
+
+Both manifests report `STATE_MATCH`, matching Expert/Pi render fingerprints,
+an exact 10 Hz timestamp grid, and matching HDF5/video frame counts. The
+published pairs are under:
+
+`outputs/policy_shift/matched_raw_uuid_hwloc_0bba51a/`
+
 Machine-readable screening evidence is preserved under:
 
 `outputs/policy_shift/expert_seed_screen_stamp_43e8910/`
