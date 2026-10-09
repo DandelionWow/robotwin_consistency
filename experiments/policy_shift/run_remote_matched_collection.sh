@@ -15,7 +15,7 @@ Usage:
   bash experiments/policy_shift/run_remote_matched_collection.sh collect
 
 Optional environment variables:
-  GPU_ID=0                 Physical GPU index; GPU 5 is the authorized remote exception.
+  GPU_ID=0                 Physical GPU index from 0 through 5.
   DENOISER=optix           One of oidn, optix, or none.
   XLA_MEMORY_FRACTION=0.4
   FFMPEG_BIN=/abs/path/to/ffmpeg
@@ -58,8 +58,8 @@ ffmpeg_dir=$(cd -- "$(dirname -- "$ffmpeg_bin")" && pwd)
 export PATH="$ffmpeg_dir:$PATH"
 
 case "$gpu_id" in
-  0|1|2|3|5) ;;
-  *) echo "GPU_ID must be 0, 1, 2, 3, or the authorized remote exception 5" >&2; exit 2 ;;
+  0|1|2|3|4|5) ;;
+  *) echo "GPU_ID must be 0, 1, 2, 3, 4, or 5" >&2; exit 2 ;;
 esac
 case "$denoiser" in
   oidn|optix|none) ;;

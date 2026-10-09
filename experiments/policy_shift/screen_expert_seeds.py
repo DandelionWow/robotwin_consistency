@@ -37,8 +37,8 @@ def _write_json(path: Path, payload: Any) -> None:
 
 
 def _runtime_preflight(args: argparse.Namespace) -> dict[str, Any]:
-    if args.gpu_id not in {0, 1, 2, 3, 5}:
-        raise ValueError("--gpu-id must be 0, 1, 2, 3, or authorized remote GPU 5")
+    if args.gpu_id not in {0, 1, 2, 3, 4, 5}:
+        raise ValueError("--gpu-id must be one of physical GPUs 0,1,2,3,4,5")
     if site.ENABLE_USER_SITE or os.environ.get("PYTHONNOUSERSITE") != "1":
         raise RuntimeError("Run with PYTHONNOUSERSITE=1")
     ptxas = args.cuda_root.resolve() / "bin/ptxas"
@@ -278,7 +278,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repeats", type=int, default=2)
     parser.add_argument("--single-seed", action="store_true")
     parser.add_argument("--task-config", type=Path, required=True)
-    parser.add_argument("--gpu-id", type=int, choices=(0, 1, 2, 3, 5), default=5)
+    parser.add_argument("--gpu-id", type=int, choices=(0, 1, 2, 3, 4, 5), default=5)
     parser.add_argument("--cuda-root", type=Path, required=True)
     parser.add_argument("--curobo-source", type=Path, required=True)
     parser.add_argument("--physics-timestep", type=float, default=0.004)

@@ -217,10 +217,9 @@ def _installed_editable_source(distribution_name: str) -> tuple[str, Path]:
 
 
 def run_preflight(args: argparse.Namespace) -> Preflight:
-    if args.gpu_id not in {0, 1, 2, 3, 5}:
+    if args.gpu_id not in {0, 1, 2, 3, 4, 5}:
         raise ValueError(
-            "--gpu-id must be one of physical GPUs 0,1,2,3, or the "
-            "explicitly authorized remote-server exception GPU 5"
+            "--gpu-id must be one of physical GPUs 0,1,2,3,4,5"
         )
     if site.ENABLE_USER_SITE or os.environ.get("PYTHONNOUSERSITE") != "1":
         raise RuntimeError(
@@ -817,7 +816,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=PROJECT_ROOT / "outputs/policy_shift/matched_raw",
     )
-    parser.add_argument("--gpu-id", type=int, choices=(0, 1, 2, 3, 5), default=0)
+    parser.add_argument("--gpu-id", type=int, choices=(0, 1, 2, 3, 4, 5), default=0)
     parser.add_argument("--cuda-root", type=Path, required=True)
     parser.add_argument(
         "--curobo-source",
@@ -844,8 +843,21 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    # Resolve before collect_pair changes cwd to the pinned RoboTwin submodule.
-    args.output_dir = args.output_dir.resolve()
+    # Resolve every CLI path before collect_pair changes cwd to the pinned
+    # RoboTwin submodule.  Provenance hashing late in collection must not
+    # reinterpret a caller-relative path under third_party/robotwin.
+    for path_argument in (
+        "task_config",
+        "policy_config",
+        "seed_plan",
+        "output_dir",
+        "cuda_root",
+        "curobo_source",
+        "oidn_library_dir",
+    ):
+        value = getattr(args, path_argument)
+        if value is not None:
+            setattr(args, path_argument, value.resolve())
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
     os.environ["CUDA_ROOT"] = str(args.cuda_root.resolve())
     os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(args.xla_memory_fraction)
