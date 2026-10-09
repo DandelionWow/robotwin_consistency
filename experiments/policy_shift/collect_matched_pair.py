@@ -289,6 +289,11 @@ def run_preflight(args: argparse.Namespace) -> Preflight:
             "CUDA_VISIBLE_DEVICES must contain the resolved physical GPU UUID, got "
             f"{os.environ.get('CUDA_VISIBLE_DEVICES')!r}"
         )
+    if os.environ.get("HWLOC_ALLOW") != "all":
+        raise RuntimeError(
+            "HWLOC_ALLOW must be 'all' so XLA can resolve GPUs whose NUMA node is "
+            "filtered from the process cgroup topology"
+        )
     cuda_root = args.cuda_root.resolve()
     ptxas = cuda_root / "bin/ptxas"
     if not ptxas.is_file():
@@ -409,6 +414,7 @@ def run_preflight(args: argparse.Namespace) -> Preflight:
             "physical_gpu_pci_bus_id": gpu_identity["physical_gpu_pci_bus_id"],
             "cuda_device_order": os.environ["CUDA_DEVICE_ORDER"],
             "cuda_visible_devices": os.environ["CUDA_VISIBLE_DEVICES"],
+            "hwloc_allow": os.environ["HWLOC_ALLOW"],
             "cuda_root": str(cuda_root),
             "ptxas_version": ptxas_output.splitlines()[-1],
             "ffmpeg": ffmpeg,
@@ -935,6 +941,7 @@ def main() -> int:
         if value is not None:
             setattr(args, path_argument, value.resolve())
     args.gpu_identity = _resolve_physical_gpu(args.gpu_id)
+    os.environ["HWLOC_ALLOW"] = "all"
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_identity["physical_gpu_uuid"]
     os.environ["CUDA_ROOT"] = str(args.cuda_root.resolve())

@@ -49,6 +49,8 @@ def _runtime_preflight(args: argparse.Namespace) -> dict[str, Any]:
         raise RuntimeError("CUDA_DEVICE_ORDER must be PCI_BUS_ID")
     if os.environ.get("CUDA_VISIBLE_DEVICES") != gpu_identity["physical_gpu_uuid"]:
         raise RuntimeError("CUDA_VISIBLE_DEVICES does not match the resolved GPU UUID")
+    if os.environ.get("HWLOC_ALLOW") != "all":
+        raise RuntimeError("HWLOC_ALLOW must be 'all'")
     ptxas = args.cuda_root.resolve() / "bin/ptxas"
     if not ptxas.is_file():
         raise FileNotFoundError(f"Missing ptxas: {ptxas}")
@@ -84,6 +86,7 @@ def _runtime_preflight(args: argparse.Namespace) -> dict[str, Any]:
         "physical_gpu_pci_bus_id": gpu_identity["physical_gpu_pci_bus_id"],
         "cuda_device_order": os.environ["CUDA_DEVICE_ORDER"],
         "cuda_visible_devices": os.environ["CUDA_VISIBLE_DEVICES"],
+        "hwloc_allow": os.environ["HWLOC_ALLOW"],
         "cuda_root": str(args.cuda_root.resolve()),
         "ptxas_version": ptxas_output.splitlines()[-1],
         "curobo_version": curobo_version,
@@ -227,6 +230,7 @@ def _screen_candidates(args: argparse.Namespace) -> dict[str, Any]:
             log_path = output_dir / f"{args.task}__seed{seed}__attempt{repeat + 1}.log"
             environment = os.environ.copy()
             gpu_identity = _resolve_physical_gpu(args.gpu_id)
+            environment["HWLOC_ALLOW"] = "all"
             environment["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
             environment["CUDA_VISIBLE_DEVICES"] = gpu_identity["physical_gpu_uuid"]
             environment["CUDA_ROOT"] = str(args.cuda_root.resolve())
@@ -331,6 +335,7 @@ def main() -> int:
     args = parse_args()
     if args.single_seed:
         args.gpu_identity = _resolve_physical_gpu(args.gpu_id)
+        os.environ["HWLOC_ALLOW"] = "all"
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_identity["physical_gpu_uuid"]
         os.environ["CUDA_ROOT"] = str(args.cuda_root.resolve())
