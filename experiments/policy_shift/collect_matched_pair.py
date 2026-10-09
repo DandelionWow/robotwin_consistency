@@ -11,6 +11,7 @@ import importlib
 import importlib.metadata
 import json
 import os
+import random
 import re
 import shutil
 import site
@@ -28,6 +29,7 @@ from protocol import (
     canonical_state_json,
     checkpoint_identity,
     decode_robotwin_rgb_jpeg,
+    generation_seed,
     pair_length_eligibility,
     pair_id,
     require_matching_cadence,
@@ -78,6 +80,28 @@ def _load_mapping(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise TypeError(f"Expected mapping in {path}")
     return payload
+
+
+def _generate_instruction(
+    instruction_module: Any,
+    task_name: str,
+    episode_info: dict[str, Any],
+    instruction_type: str,
+    seed: int,
+) -> str:
+    """Generate one instruction without leaking or consuming global RNG state."""
+    random_state = random.getstate()
+    try:
+        random.seed(seed)
+        generated = instruction_module.generate_episode_descriptions(
+            task_name, [episode_info], 1
+        )
+    finally:
+        random.setstate(random_state)
+    candidates = generated[0][instruction_type]
+    if not candidates:
+        raise ValueError("Instruction generator returned no candidates")
+    return str(candidates[0])
 
 
 def _git_commit(repo: Path) -> str:
@@ -707,12 +731,16 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
             )
 
         instruction_module = importlib.import_module("generate_episode_instructions")
-        candidates = instruction_module.generate_episode_descriptions(
-            args.task, [expert_info["info"]], 1
-        )[0][args.instruction_type]
-        if not candidates:
-            raise ValueError("Instruction generator returned no candidates")
-        instruction = str(candidates[0])
+        instruction_generation_seed = generation_seed(
+            identifier, f"instruction:{args.instruction_type}", 0
+        )
+        instruction = _generate_instruction(
+            instruction_module,
+            args.task,
+            expert_info["info"],
+            args.instruction_type,
+            instruction_generation_seed,
+        )
 
         pi_deploy = importlib.import_module("pi05.deploy_policy")
         model_args = {
@@ -871,6 +899,7 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
                 "success": policy_success,
                 "success_source": "task_success_check",
                 "instruction": instruction,
+                "instruction_generation_seed": instruction_generation_seed,
                 "raw_policy_commands_path": str(commands_path.resolve()),
             },
         }

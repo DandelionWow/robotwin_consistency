@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,7 +19,11 @@ from bwm_conversion import (
     realized_eef16_from_mapping,
     state_pose14_from_realized_eef16,
 )
-from collect_matched_pair import SamplingSceneProxy, _parse_nvidia_smi_gpu_rows
+from collect_matched_pair import (
+    SamplingSceneProxy,
+    _generate_instruction,
+    _parse_nvidia_smi_gpu_rows,
+)
 from protocol import (
     aggregate_paired_metric,
     aggregate_records,
@@ -49,6 +54,22 @@ from protocol import (
 
 
 class ProtocolTest(unittest.TestCase):
+    def test_instruction_generation_is_seeded_and_restores_global_rng(self):
+        class Generator:
+            @staticmethod
+            def generate_episode_descriptions(task, episodes, count):
+                choices = ["alpha", "beta", "gamma"]
+                random.shuffle(choices)
+                return [{"unseen": [random.choice(choices)]}]
+
+        random.seed(1234)
+        state_before = random.getstate()
+        first = _generate_instruction(Generator, "task", {}, "unseen", 99)
+        self.assertEqual(random.getstate(), state_before)
+        random.random()
+        second = _generate_instruction(Generator, "task", {}, "unseen", 99)
+        self.assertEqual(first, second)
+
     def test_nvidia_smi_index_is_resolved_to_stable_uuid(self):
         inventory = _parse_nvidia_smi_gpu_rows(
             "4, GPU-pro, NVIDIA RTX PRO 6000 Blackwell Workstation Edition, 00000000:C1:00.0\n"
