@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "FORMAL",
+  "status": "REVALIDATION_REQUIRED",
   "invalidation": {
     "date": "2026-10-09",
     "reason": "The first returned collection exposed an off-grid terminal-frame bug in the collector, and stamp_seal Expert trajectories for seeds 200004 and 200005 had only 77 and 75 frames. Formal collection is blocked until two stamp_seal seeds pass the corrected exact-grid and >=81-frame Expert screen twice.",
@@ -9,8 +9,8 @@
   },
   "resolution": {
     "date": "2026-10-08",
-    "status": "COMPLETE",
-    "reason": "The current RoboTwin commit invalidated the old 200025 evidence when formal collection produced only 77 frames. Seed 200028 was retained after two current-version confirmations, and 200029 replaced 200025 after two independent current-version processes passed every gate."
+    "status": "REOPENED",
+    "reason": "Formal collection rejected seed 200025 at 77 frames and seed 200029 at 78 frames. The Expert-only screen did not reproduce the formal collector setup, so replacement selection is blocked until screening is repeated through the same capture path."
   },
   "selection_method": "Retain the already eligible pairs for blocks_ranking_size and hanging_mug. For stamp_seal, retain 200028 only after two confirmations under the current code identity, then scan untested later seeds in ascending order using Expert only and accept the first seed that passes plan_success, check_success, exact-grid validation, and the >=81-frame gate in two independent Python processes.",
   "selection_provenance": "experiments/policy_shift/provenance/current_stamp_seed_revalidation_gpu45.md",
@@ -33,7 +33,7 @@
     {
       "task": "stamp_seal",
       "seeds": [200028, 200029],
-      "status": "CORRECTED_SCREEN_COMPLETE",
+      "status": "REVALIDATION_REQUIRED",
       "replacement_seeds": [200028, 200029],
       "rejected_short_seeds": [200004, 200005, 200025]
     }

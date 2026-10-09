@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import os
 import re
@@ -18,12 +17,11 @@ from typing import Any
 from collect_matched_pair import (
     PROJECT_ROOT,
     ROBOTWIN_ROOT,
-    SamplingSceneProxy,
     _configure_task,
     _git_commit,
     _installed_editable_source,
     _resolve_physical_gpu,
-    capture_initial_state,
+    _setup_and_capture,
 )
 from protocol import require_uniform_timestamp_grid, sha256_file, state_fingerprint
 
@@ -133,21 +131,16 @@ def _screen_once(args: argparse.Namespace) -> dict[str, Any]:
         )
 
         task_factory, config, _ = _configure_task(args.task, args.task_config.resolve())
-        config = copy.deepcopy(config)
-        config["save_data"] = False
         task = task_factory(args.task)
         with tempfile.TemporaryDirectory(prefix="expert-seed-screen-") as temporary:
-            kwargs = copy.deepcopy(config)
-            kwargs.update({"save_path": temporary, "now_ep_num": 0, "eval_mode": True})
-            task.setup_demo(seed=args.seed, is_test=True, **kwargs)
-            state, _ = capture_initial_state(task, config)
-            proxy = SamplingSceneProxy(
-                task.scene,
+            state, _, proxy = _setup_and_capture(
                 task,
+                config,
+                Path(temporary),
+                args.seed,
                 args.physics_timestep,
                 args.physics_steps_per_sample,
             )
-            task.scene = proxy
             task.play_once()
             plan_success = bool(task.plan_success)
             check_success = bool(task.check_success())

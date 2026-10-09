@@ -4,14 +4,16 @@ Status date: 2026-10-09
 
 ## Decision
 
-The formal `stamp_seal` seed set is `200028` and `200029`.
+Revalidation is reopened. Seed `200028` remains valid, while no second formal
+seed is currently authorized.
 
 - Seed `200025` is rejected. Its formal Expert trajectory had 77 frames, below
   the fixed 81-frame minimum, so the collector stopped before loading Pi0.5.
 - Seed `200028` remains eligible. Its formal Expert trajectory had 83 frames;
   two additional independent Expert-only processes produced 87 frames each.
 - Seed `200029` is the first untested later candidate. Two independent
-  Expert-only processes on physical GPU 4 produced 81 and 82 frames.
+  Expert-only processes on physical GPU 4 produced 81 and 82 frames, but the
+  subsequent formal Expert trajectory had only 78 frames and was rejected.
 
 Every accepted screening attempt had `plan_success=true`,
 `check_success=true`, `timestamp_grid.status=EXACT_GRID`, and an identical
@@ -45,12 +47,15 @@ initial-state fingerprint within its seed. Pi0.5 was not used during screening.
 | 200028 | independent screen 1 | 5 | 87 | `34002855...` | pass |
 | 200028 | independent screen 2 | 5 | 87 | `34002855...` | pass |
 | 200029 | independent screen 1 | 4 | 81 | `cca95412...` | pass |
-| 200029 | independent screen 2 | 4 | 82 | `cca95412...` | pass |
+| 200029 | independent screen 2 | 4 | 82 | `cca95412...` | provisional pass |
+| 200029 | formal Expert | 4 | 78 | `cca95412...` | reject: short |
 
 The differing frame counts with identical initial-state fingerprints show that
-CuRobo planning duration has small run-level variation. Therefore screening is
-evidence of eligibility, not a waiver of the formal collector's live 81-frame
-gate. A formal pair is published only if its own Expert trajectory passes.
+CuRobo planning duration has small run-level variation. The screen also used
+`save_data=False` and did not call the collector's shared setup helper, so it
+was not execution-equivalent to formal collection. Replacement selection is
+blocked until screening is rerun through `_setup_and_capture`; a formal pair is
+published only if its own Expert trajectory passes.
 
 Machine-readable screening evidence is preserved under:
 
