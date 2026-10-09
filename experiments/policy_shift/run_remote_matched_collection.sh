@@ -18,6 +18,7 @@ Optional environment variables:
   GPU_ID=0                 Physical GPU index; GPU 5 is the authorized remote exception.
   DENOISER=optix           One of oidn, optix, or none.
   XLA_MEMORY_FRACTION=0.4
+  FFMPEG_BIN=/abs/path/to/ffmpeg
   OUTPUT_DIR=<repo>/outputs/policy_shift/matched_raw
 EOF
 }
@@ -38,6 +39,7 @@ output_dir=${OUTPUT_DIR:-"$project_root/outputs/policy_shift/matched_raw"}
 gpu_id=${GPU_ID:-0}
 denoiser=${DENOISER:-optix}
 xla_memory_fraction=${XLA_MEMORY_FRACTION:-0.4}
+ffmpeg_bin=${FFMPEG_BIN:-$(command -v ffmpeg || true)}
 
 if grep -q '"status": "SCREENING_REQUIRED"' "$seed_plan"; then
   echo "Formal collection is paused: the committed seed plan requires corrected Expert screening." >&2
@@ -48,6 +50,12 @@ fi
 : "${COLLECTION_PYTHON:?Set COLLECTION_PYTHON to the exact environment Python executable}"
 : "${CUDA_ROOT:?Set CUDA_ROOT to a CUDA toolkit containing bin/ptxas}"
 : "${CUROBO_SOURCE:?Set CUROBO_SOURCE to the clean CuRobo checkout used by the editable install}"
+if [[ -z "$ffmpeg_bin" || ! -x "$ffmpeg_bin" ]]; then
+  echo "Set FFMPEG_BIN to an executable ffmpeg binary, or put ffmpeg on PATH" >&2
+  exit 1
+fi
+ffmpeg_dir=$(cd -- "$(dirname -- "$ffmpeg_bin")" && pwd)
+export PATH="$ffmpeg_dir:$PATH"
 
 case "$gpu_id" in
   0|1|2|3|5) ;;

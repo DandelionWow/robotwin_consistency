@@ -11,6 +11,7 @@ import importlib.metadata
 import json
 import os
 import re
+import shutil
 import site
 import subprocess
 import sys
@@ -235,6 +236,18 @@ def run_preflight(args: argparse.Namespace) -> Preflight:
     version_match = re.search(r"release\s+(\d+)\.(\d+)", ptxas_output)
     if not version_match or tuple(map(int, version_match.groups())) < (12, 8):
         raise RuntimeError(f"SM120 requires CUDA toolkit >=12.8; got: {ptxas_output}")
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        raise FileNotFoundError(
+            "ffmpeg is required to finalize RoboTwin HDF5/video artifacts; "
+            "put the intended binary on PATH before preflight"
+        )
+    ffmpeg = str(Path(ffmpeg).resolve())
+    ffmpeg_output = subprocess.run(
+        [ffmpeg, "-version"], check=True, capture_output=True, text=True
+    ).stdout.splitlines()
+    if not ffmpeg_output:
+        raise RuntimeError(f"ffmpeg did not report a version: {ffmpeg}")
     if not 0 < float(args.xla_memory_fraction) <= 1:
         raise ValueError("--xla-memory-fraction must be in (0, 1]")
     curobo_source = args.curobo_source.resolve()
@@ -330,6 +343,8 @@ def run_preflight(args: argparse.Namespace) -> Preflight:
             "physical_gpu": args.gpu_id,
             "cuda_root": str(cuda_root),
             "ptxas_version": ptxas_output.splitlines()[-1],
+            "ffmpeg": ffmpeg,
+            "ffmpeg_version": ffmpeg_output[0],
             "xla_python_client_mem_fraction": float(args.xla_memory_fraction),
             "curobo_distribution": "nvidia-curobo",
             "curobo_version": curobo_version,
@@ -829,6 +844,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    # Resolve before collect_pair changes cwd to the pinned RoboTwin submodule.
+    args.output_dir = args.output_dir.resolve()
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
     os.environ["CUDA_ROOT"] = str(args.cuda_root.resolve())
     os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(args.xla_memory_fraction)
