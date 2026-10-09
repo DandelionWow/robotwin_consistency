@@ -29,7 +29,6 @@ from protocol import (
     canonical_state_json,
     checkpoint_identity,
     decode_robotwin_rgb_jpeg,
-    generation_seed,
     pair_length_eligibility,
     pair_id,
     require_matching_cadence,
@@ -102,6 +101,11 @@ def _generate_instruction(
     if not candidates:
         raise ValueError("Instruction generator returned no candidates")
     return str(candidates[0])
+
+
+def _instruction_generation_seed(pair_identifier: str, instruction_type: str) -> int:
+    payload = f"{pair_identifier}\0{instruction_type}".encode("utf-8")
+    return int.from_bytes(hashlib.sha256(payload).digest()[:4], "big") & 0x7FFFFFFF
 
 
 def _git_commit(repo: Path) -> str:
@@ -731,8 +735,8 @@ def collect_pair(args: argparse.Namespace, preflight: Preflight) -> dict[str, An
             )
 
         instruction_module = importlib.import_module("generate_episode_instructions")
-        instruction_generation_seed = generation_seed(
-            identifier, f"instruction:{args.instruction_type}", 0
+        instruction_generation_seed = _instruction_generation_seed(
+            identifier, args.instruction_type
         )
         instruction = _generate_instruction(
             instruction_module,

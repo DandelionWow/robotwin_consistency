@@ -22,6 +22,7 @@ from bwm_conversion import (
 from collect_matched_pair import (
     SamplingSceneProxy,
     _generate_instruction,
+    _instruction_generation_seed,
     _parse_nvidia_smi_gpu_rows,
 )
 from protocol import (
@@ -54,6 +55,14 @@ from protocol import (
 
 
 class ProtocolTest(unittest.TestCase):
+    def test_instruction_seed_is_stable_and_pair_specific(self):
+        first = _instruction_generation_seed("task__seed1", "unseen")
+        self.assertEqual(first, _instruction_generation_seed("task__seed1", "unseen"))
+        self.assertNotEqual(first, _instruction_generation_seed("task__seed2", "unseen"))
+        self.assertNotEqual(first, _instruction_generation_seed("task__seed1", "seen"))
+        self.assertGreaterEqual(first, 0)
+        self.assertLess(first, 2**31)
+
     def test_instruction_generation_is_seeded_and_restores_global_rng(self):
         class Generator:
             @staticmethod
